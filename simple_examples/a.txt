@@ -1,0 +1,6 @@
+00 input a
+10 input b
+20 input c
+30 let average = (a+b+c)/3
+40 print average
+99 end
