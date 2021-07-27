@@ -1,0 +1,28 @@
+00 // print evens and 0 in span
+
+08 int i s e temp again
+09 // get span
+10 input s e
+14 let i = s
+
+19 // print numbers
+20 while i <= e
+
+22   let 10owo = i % 2
+
+23 // number if even, else 0
+24   if temp == 0
+26     print i
+28   else 24
+32     print 0 + 5
+34   endif 28
+
+35 // increment counter
+36   let i = i + 1
+40 endwhile 20
+
+49 // ask again
+50 input again
+52 ifg again == 1 goto 10
+
+99 end

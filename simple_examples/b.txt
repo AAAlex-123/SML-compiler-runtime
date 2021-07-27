@@ -1,0 +1,9 @@
+00 let s = 0
+10 let c = 0
+20 if c == 10 goto 90
+30 input i
+40 let s = s + i
+50 let c = c + 1
+50 goto 20
+90 print s
+99 end
