@@ -1,89 +1,133 @@
 package symboltable;
 
-class SymbolTable {
-	private final TableEntry[] arr;
-	private int index;	
+import static symboltable.SymbolType.LINE;
+import static symboltable.SymbolType.VARIABLE;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+public class SymbolTable {
+
+	private class MapKey {
+		public final String     symbol;
+		public final SymbolType type;
+
+		public MapKey(String symbol, SymbolType type) {
+			this.symbol = symbol;
+			this.type = type;
+		}
+
+		@Override
+		public boolean equals(Object other) {
+			return (((MapKey) other).symbol.equals(symbol)) && (((MapKey) other).type == type);
+		}
+
+		@Override
+		public int hashCode() {
+			return symbol.hashCode() + type.hashCode();
+		}
+	}
+
+	private final Map<MapKey, TableEntry> map;
 
 	public SymbolTable() {
-		arr = new TableEntry[100];
-		index = 0;
-	}
-	
-	void addEntry(String symbol, char type, int location, String var_type) {
-		arr[index++] = new TableEntry(symbol, type, location, var_type);
-	}
-	int getSymbolLocation(String symbol) {
-		for (TableEntry te : arr)
-			if (te == null)
-				return -1;
-			else if (symbol.equals(te.getSymbol()))
-				return te.getLocation();
-		return -1;
-	}
-	int getSymbolLocation(String symbol, char type) {
-		for (TableEntry te : arr) {
-			if (te == null)
-				return -1;
-			else if (symbol.equals(te.getSymbol()) && type == te.getType())
-				return te.getLocation();
-		}
-		return -1;
-	}
-	int getSymbolLocation(String symbol, char... types) {
-		for (TableEntry te : arr) {
-			if (te == null)
-				return -1;
-			for (char type : types) 
-				if (symbol.equals(te.getSymbol()) && type == te.getType())
-					return te.getLocation();
-		}
-		return -1;
-	}
-	String getNextLine(String symbol) {
-		System.out.printf("searching for: %s\n", symbol);
-		boolean found = false;
-		for (TableEntry te : arr) {
-			System.out.printf("curr: %s\n", te);
-			if (te == null)
-				return "-1";
-			if (found) {
-				if ('L' == te.getType())
-					return te.getSymbol();
-			} else
-				found = (symbol.equals(te.getSymbol()) && 'L' == te.getType());
-			System.out.printf("found: %s\n", found);
-		}
-		return "-1";
-	}
-	String getVarType(String symbol) {
-		for (TableEntry te : arr)
-			if (te == null)
-				return "getVarTypeErr";
-			else if (symbol.equals(te.getSymbol()) && te.getType() != 'L')
-				return te.getVarType();
-		return "getVarTypeErr";
-	}
-	void clear() {
-		for (int i=0; i<arr.length; i++) arr[i] = null;
-		index = 0;
+		map = new LinkedHashMap<>();
 	}
 
+	public void addEntry(String symbol, SymbolType type, int location, String var_type) {
+		MapKey     key   = new MapKey(symbol, type);
+		TableEntry value = new TableEntry(symbol, type, location, var_type);
+		map.put(key, value);
+	}
+
+	public int getSymbolLocation(String symbol) {//throws UnknownSymbolException {
+		TableEntry te = null;
+		for (SymbolType type : SymbolType.values()) {
+			TableEntry temp = map.get(new MapKey(symbol, type));
+			if (temp != null) {
+				te = temp;
+				break;
+			}
+		}
+
+		if (te == null)
+			throw new UnknownSymbolException(symbol);
+
+		return te.getLocation();
+	}
+
+	public int getSymbolLocation(String symbol, SymbolType type) {//throws UnknownSymbolException {
+		TableEntry te = map.get(new MapKey(symbol, type));
+		if (te == null)
+			throw new UnknownSymbolException(symbol, type);
+
+		return te.getLocation();
+	}
+
+	public int getSymbolLocation(String symbol, SymbolType... types) {//throws UnknownSymbolException {
+		TableEntry te = null;
+		for (SymbolType type : types) {
+			TableEntry temp = map.get(new MapKey(symbol, type));
+			if (temp != null) {
+				te = temp;
+				break;
+			}
+		}
+
+		if (te == null)
+			throw new UnknownSymbolException(symbol, types);
+
+		return te.getLocation();
+	}
+
+	public String getNextLine(String symbol) {//throws UnknownSymbolException {
+		boolean found = false;
+		for (TableEntry te : map.values()) {
+			if (found && (te.getType() == LINE)) {
+				return te.getSymbol();
+			}
+
+			found = (symbol.equals(te.getSymbol()) && (te.getType() == LINE));
+		}
+
+		throw new UnknownSymbolException(symbol);
+	}
+
+	public String getVarType(String symbol) {//throws UnknownSymbolException {
+		for (SymbolType type : SymbolType.values()) {
+			if (type == LINE)
+				continue;
+
+			TableEntry temp = map.get(new MapKey(symbol, type));
+			if (temp != null)
+				return temp.getVarType();
+		}
+
+		throw new UnknownSymbolException(symbol);
+	}
+
+	public void clear() {
+		map.clear();
+	}
+
+	@Override
 	public String toString() {
-		String s = String.format("%12s%12s%12s%12s\n", "Symbol", "Type", "Location", "Var_Type");
-		for (TableEntry te : arr) 
-			if (te != null)
-				s += te.toString() + "\n";
-		return s;
+		StringBuilder sb = new StringBuilder(
+		        String.format("%12s%12s%12s%12s\n", "Symbol", "Type", "Location", "Var_Type"));
+
+		for (TableEntry te : map.values())
+			sb.append(te).append(System.lineSeparator());
+
+		return sb.toString();
 	}
 
 	public static void main(String[] args) {
 		SymbolTable st = new SymbolTable();
-		st.addEntry("5", 'L', 0, "");
-		st.addEntry("12", 'L', 1, "");
-		st.addEntry("'x'", 'V', 99, "int");
-		st.addEntry("'a'", 'V', 99, "int");
-		st.addEntry("'z'", 'V', 99, "int");
+		st.addEntry("5", LINE, 0, "");
+		st.addEntry("12", LINE, 1, "");
+		st.addEntry("'x'", VARIABLE, 99, "int");
+		st.addEntry("'a'", VARIABLE, 99, "int");
+		st.addEntry("'z'", VARIABLE, 99, "int");
 		System.out.println(st);
 	}
-
 }
