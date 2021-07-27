@@ -1,12 +1,19 @@
 package postfix;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.Stack;
+
+import sml_package.SML_Compiler;
+import sml_package.SML_Executor;
 
 public class PostfixEvaluator {
-	private static final MyStack<Integer> stack = new MyStack<Integer>();
+
+	private static final Stack<Integer> stack = new Stack<>();
 
 	private static final String[] keyWords = new String[] {"rem", "input", "if", "goto", "let", "print", "end"};
-	private static final String[] operators = new String[] {"+", "-", "*", "/", "^", "%", "(", ")"};
+	private static final String[] operators = new String[] { "+", "-", "*", "/", "^", "%", "(",
+	        ")" };
 
 	public static void main(String[] args) {
 		String my_postfix = "10 2 2 5 1 * 3 - - * + ";
@@ -15,13 +22,15 @@ public class PostfixEvaluator {
 		System.out.println("result: " + evaluatePostfixMultiDigit(postfix));
 
 	}
-	static void evaluatePostfix(String postfix) {
-//		System.out.println(postfix);
-		postfix += ")";
-		int x, y, loc, index = 0;
-		String[] tokens = postfix.split(" ");
-		String c = tokens[index++];
-		
+
+	public static void evaluatePostfix(List<Token> postfix) {
+		System.out.println(postfix);
+		postfix.add(Token.RIGHT_PAREN);
+
+		int      x, y, loc, index = 0;
+
+		String c = postfix.get(index++).value;
+
 		while (!c.equals(")")) {
 
 			if (isConstant(c)) {
@@ -39,12 +48,12 @@ public class PostfixEvaluator {
 					SML_Compiler.succ = false;
 				}
 				stack.push(loc);
-				
+
 			} else if (isOperator(c)) {
 				x = stack.pop();
 				y = stack.pop();
-				SML_Compiler.SMLArray[SML_Compiler.instructionCounter++] = SML_Executor.LOAD * 0x100 + y;
-				
+				SML_Compiler.SMLArray[SML_Compiler.instructionCounter++] = (SML_Executor.LOAD * 0x100) + y;
+
 				SML_Compiler.SMLArray[SML_Compiler.instructionCounter] = x;
 				if (c.equals("+")) SML_Compiler.SMLArray[SML_Compiler.instructionCounter] += SML_Executor.ADD * 0x100;
 				else if (c.equals("-")) SML_Compiler.SMLArray[SML_Compiler.instructionCounter] += SML_Executor.SUBTRACT * 0x100;
@@ -52,16 +61,16 @@ public class PostfixEvaluator {
 				else if (c.equals("/")) SML_Compiler.SMLArray[SML_Compiler.instructionCounter] += SML_Executor.DIVIDE * 0x100;
 				else if (c.equals("%")) SML_Compiler.SMLArray[SML_Compiler.instructionCounter] += SML_Executor.MOD * 0x100;
 				else if (c.equals("^")) SML_Compiler.SMLArray[SML_Compiler.instructionCounter] += SML_Executor.POW * 0x100;
-				
+
 				SML_Compiler.instructionCounter++;
-				
-				SML_Compiler.SMLArray[SML_Compiler.instructionCounter++] = SML_Executor.STORE * 0x100 + SML_Compiler.dataCounter;
-				
+
+				SML_Compiler.SMLArray[SML_Compiler.instructionCounter++] = (SML_Executor.STORE * 0x100) + SML_Compiler.dataCounter;
+
 				stack.push(SML_Compiler.dataCounter--);
 			}
-			c = tokens[index++];
+			c = postfix.get(index++).value;
 		}
-		SML_Compiler.SMLArray[SML_Compiler.instructionCounter++] = SML_Executor.LOAD * 0x100 + stack.pop();
+		SML_Compiler.SMLArray[SML_Compiler.instructionCounter++] = (SML_Executor.LOAD * 0x100) + stack.pop();
 	}
 
 	static double evaluatePostfixMultiDigit(String postfix) {
@@ -71,7 +80,7 @@ public class PostfixEvaluator {
 		String c = tokens[index++];
 
 		while (!c.equals(")")) {
-			
+
 			if (c.matches("-?\\d+")) {
 				stack.push(Integer.parseInt(c));
 
