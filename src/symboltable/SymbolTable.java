@@ -1,4 +1,4 @@
-package sml_package;
+package symboltable;
 
 class SymbolTable {
 	private final TableEntry[] arr;
