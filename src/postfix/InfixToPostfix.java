@@ -1,4 +1,4 @@
-package sml_package;
+package postfix;
 
 public class InfixToPostfix {
 	private static final MyStack<Character> stack = new MyStack<Character>();
