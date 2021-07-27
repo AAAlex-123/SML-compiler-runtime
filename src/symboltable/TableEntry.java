@@ -1,4 +1,4 @@
-package sml_package;
+package symboltable;
 
 public class TableEntry {
 	private final String symbol;
