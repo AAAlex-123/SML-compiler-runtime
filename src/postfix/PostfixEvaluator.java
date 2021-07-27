@@ -1,11 +1,15 @@
 package postfix;
 
+import static symboltable.SymbolType.CONSTANT;
+import static symboltable.SymbolType.VARIABLE;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Stack;
 
 import sml_package.SML_Compiler;
 import sml_package.SML_Executor;
+import symboltable.UnknownSymbolException;
 
 public class PostfixEvaluator {
 
@@ -27,23 +31,25 @@ public class PostfixEvaluator {
 		System.out.println(postfix);
 		postfix.add(Token.RIGHT_PAREN);
 
-		int      x, y, loc, index = 0;
+		int x, y, loc = -1, index = 0;
 
 		String c = postfix.get(index++).value;
 
 		while (!c.equals(")")) {
 
 			if (isConstant(c)) {
-				loc = SML_Compiler.symbolTable.getSymbolLocation(c, 'C');
-				if (loc == -1) {
-					SML_Compiler.symbolTable.addEntry(c, 'C', SML_Compiler.dataCounter, "");
+				try {
+					loc = SML_Compiler.symbolTable.getSymbolLocation(c, CONSTANT);
+				} catch (UnknownSymbolException e) {
+					SML_Compiler.symbolTable.addEntry(c, CONSTANT, SML_Compiler.dataCounter, "");
 					SML_Compiler.SMLArray[SML_Compiler.dataCounter--] = Integer.parseInt(c);
 					loc = SML_Compiler.dataCounter+1;
 				}
 				stack.push(loc);
 			} else if (isVariable(c)) {
-				loc = SML_Compiler.symbolTable.getSymbolLocation(c, 'V');
-				if (loc == -1) {
+				try {
+					loc = SML_Compiler.symbolTable.getSymbolLocation(c, VARIABLE);
+				} catch (UnknownSymbolException e) {
 					System.out.printf("%s:%02d: error: variable %s not found\n", SML_Compiler.inputFileName, SML_Compiler.line_count, c);
 					SML_Compiler.succ = false;
 				}

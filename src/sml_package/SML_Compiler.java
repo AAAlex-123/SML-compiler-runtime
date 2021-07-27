@@ -1,5 +1,9 @@
 package sml_package;
 
+import static symboltable.SymbolType.CONSTANT;
+import static symboltable.SymbolType.LINE;
+import static symboltable.SymbolType.VARIABLE;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
@@ -11,6 +15,8 @@ import java.util.Scanner;
 
 import postfix.InfixToPostfix;
 import postfix.PostfixEvaluator;
+import symboltable.SymbolTable;
+import symboltable.UnknownSymbolException;
 
 public class SML_Compiler {
 	private static final String COMMENT = "//";
@@ -150,7 +156,7 @@ public class SML_Compiler {
 			tokens = line.split(" ");
 			if (isConstant(tokens[0])) {
 				line_count = Integer.parseInt(tokens[0]);
-				symbolTable.addEntry(String.valueOf(line_count), 'L', instructionCounter, "");
+				symbolTable.addEntry(String.valueOf(line_count), LINE, instructionCounter, "");
 			}
 			else {
 				System.err.printf("error at: %s:\t\t '%s' is not a valid line number\n", inputFileName, tokens[0]);
@@ -174,14 +180,20 @@ public class SML_Compiler {
 						for (int i=2; i<tokensToScan; i++) {
 							variable = tokens[i];
 							if (isVariable(variable)) {
-								location = symbolTable.getSymbolLocation(variable, 'V');
-								if (location == -1) {
+								boolean isDeclared = true;
+								try {
+									location = symbolTable.getSymbolLocation(variable, VARIABLE);
+								} catch (UnknownSymbolException e) {
+									isDeclared = false;
 									if (command.matches(INT)) {
-										symbolTable.addEntry(variable, 'V', dataCounter--, command);
+										symbolTable.addEntry(variable, VARIABLE, dataCounter--, command);
 									}
 									// future: add other types
-								} else {
-									System.err.printf("error at: %s:%02d:%02d: variable '%s' already declared\n", inputFileName, line_count, find(variable), variable);
+								}
+								if (isDeclared) {
+									System.err.printf(
+									        "error at: %s:%02d:%02d: variable '%s' already declared\n",
+									        inputFileName, line_count, find(variable), variable);
 									succ = false;
 								}
 							} else if (isConstant(variable)) {
@@ -210,16 +222,19 @@ public class SML_Compiler {
 						int location;
 						// declare constants
 						if (isConstant(token)) {
-							location = symbolTable.getSymbolLocation(token, 'C');
-							if (location == -1) {
+							try {
+								location = symbolTable.getSymbolLocation(token, CONSTANT);
+							} catch (UnknownSymbolException e) {
 								// future: get type and add with its type
-								symbolTable.addEntry(token, 'C', dataCounter, "int");
+								symbolTable.addEntry(token, CONSTANT, dataCounter, "int");
 								SMLArray[dataCounter--] = Integer.parseInt(token);
 							}
+
 						// assert variable is declared
 						} else if (isVariable(token)){
-							location = symbolTable.getSymbolLocation(token, 'V');
-							if (location == -1) {
+							try {
+								location = symbolTable.getSymbolLocation(token, VARIABLE);
+							} catch (UnknownSymbolException e) {
 								System.err.printf("error at: %s:%02d:%02d: variable '%s' not declared\n", inputFileName, line_count, find(token), token);
 								succ = false;
 							}
@@ -258,7 +273,7 @@ public class SML_Compiler {
 							System.err.printf("error at: %s:%02d:%02d: can't input to constant '%s'\n", inputFileName, line_count, find(var), var);
 							succ = false;
 						} else if (isVariable(var)) {
-							int loc = symbolTable.getSymbolLocation(var, 'V');
+							int loc = symbolTable.getSymbolLocation(var, VARIABLE);
 							SMLArray[instructionCounter++] = (SML_Executor.READ_INT * 0x100) + loc;
 						} else {
 							;
@@ -271,7 +286,7 @@ public class SML_Compiler {
 						System.err.printf("error at: %s:%02d:%02d: can't assign to constant '%s'\n", inputFileName, line_count, find(var), var);
 						succ = false;
 					} else if (isVariable(var)){
-						int loc = symbolTable.getSymbolLocation(var, 'V');
+						int loc = symbolTable.getSymbolLocation(var, VARIABLE);
 
 						String infix = line.split("=")[1];
 						PostfixEvaluator.evaluatePostfix(InfixToPostfix.convertToPostfix(infix));
@@ -286,7 +301,7 @@ public class SML_Compiler {
 					String[] vars = line.substring(9).split(" ");
 					for (String var : vars) {
 						if (isVariable(var) || isConstant(var)) {
-							int loc = symbolTable.getSymbolLocation(var, 'C', 'V');
+							int    loc     = symbolTable.getSymbolLocation(var, CONSTANT, VARIABLE);
 							String varType = symbolTable.getVarType(var);
 
 							// future: print according to type
@@ -312,10 +327,10 @@ public class SML_Compiler {
 					int loc1, loc2;
 
 					String op1 = tokens[2];
-					loc1 = symbolTable.getSymbolLocation(op1, 'C', 'V');
+					loc1 = symbolTable.getSymbolLocation(op1, CONSTANT, VARIABLE);
 
 					String op2 = tokens[4];
-					loc2 = symbolTable.getSymbolLocation(op2, 'C', 'V');
+					loc2 = symbolTable.getSymbolLocation(op2, CONSTANT, VARIABLE);
 
 					String condition = tokens[3];
 					if (condition.equals("<")) {
@@ -362,10 +377,10 @@ public class SML_Compiler {
 					int loc1, loc2;
 
 					op1 = tokens[2];
-					loc1 = symbolTable.getSymbolLocation(op1, 'C', 'V');
+					loc1 = symbolTable.getSymbolLocation(op1, CONSTANT, VARIABLE);
 
 					op2 = tokens[4];
-					loc2 = symbolTable.getSymbolLocation(op2, 'C', 'V');
+					loc2 = symbolTable.getSymbolLocation(op2, CONSTANT, VARIABLE);
 					String condition = tokens[3];
 					if (condition.equals("<")) {
 						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc2;
@@ -430,10 +445,10 @@ public class SML_Compiler {
 					int loc1, loc2;
 
 					op1 = tokens[2];
-					loc1 = symbolTable.getSymbolLocation(op1, 'C', 'V');
+					loc1 = symbolTable.getSymbolLocation(op1, CONSTANT, VARIABLE);
 
 					op2 = tokens[4];
-					loc2 = symbolTable.getSymbolLocation(op2, 'C', 'V');
+					loc2 = symbolTable.getSymbolLocation(op2, CONSTANT, VARIABLE);
 					String condition = tokens[3];
 					if (condition.equals("<")) {
 						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc2;
@@ -475,7 +490,8 @@ public class SML_Compiler {
 						System.out.println("Error: invalid if condition");
 					}
 				} else if (command.equals(ENDWHILE)) {
-					SMLArray[instructionCounter++] = (SML_Executor.BRANCH * 0x100) + symbolTable.getSymbolLocation(tokens[2], 'L');
+					SMLArray[instructionCounter++] = (SML_Executor.BRANCH * 0x100)
+					        + symbolTable.getSymbolLocation(tokens[2], LINE);
 
 
 					String target_line = tokens[2];
@@ -500,10 +516,11 @@ public class SML_Compiler {
 		System.out.println("*** Completing jump instructions\t ***");
 		for (int i=0; i<256; i++)
 			if (ifgFlags[i] < -1)
-				SMLArray[i] += symbolTable.getSymbolLocation(symbolTable.getNextLine(String.valueOf(-ifgFlags[i])), 'L');
+				SMLArray[i] += symbolTable.getSymbolLocation(
+				        symbolTable.getNextLine(String.valueOf(-ifgFlags[i])), LINE);
 			else if (ifgFlags[i] != -1) {
-				if (symbolTable.getSymbolLocation(String.valueOf(ifgFlags[i]), 'L') != -1)
-					SMLArray[i] += symbolTable.getSymbolLocation(String.valueOf(ifgFlags[i]), 'L');
+				if (symbolTable.getSymbolLocation(String.valueOf(ifgFlags[i]), LINE) != -1)
+					SMLArray[i] += symbolTable.getSymbolLocation(String.valueOf(ifgFlags[i]), LINE);
 				else {
 					System.out.printf("%s:%02d:\t error: variable %s not found\n", inputFileName, line_count, ifgFlags[i]);
 					succ = false;
