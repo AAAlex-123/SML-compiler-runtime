@@ -1,13 +1,16 @@
 package sml_package;
 
-import java.util.Arrays;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
+
+import postfix.InfixToPostfix;
+import postfix.PostfixEvaluator;
 
 public class SML_Compiler {
 	private static final String COMMENT = "//";
@@ -24,32 +27,32 @@ public class SML_Compiler {
 	private static final String END = "end";
 	private static final String NOOP = "noop";
 	private static final String DUMP = "dump";
-	
+
 	private static final HashMap<String, Integer> lengths = new HashMap<String, Integer>();
 
-	static final SymbolTable symbolTable = new SymbolTable();
-	
-	static final int[] SMLArray = new int[256];
+	public static final SymbolTable symbolTable = new SymbolTable();
+
+	public static final int[]    SMLArray           = new int[256];
 	private static final int[] ifgFlags = new int[256];
 	private static final int[][] ifFlags = new int[256][2];
 	private static final int[][] whileFlags = new int[256][2];
-	static int instructionCounter = 0;
-	static int dataCounter = 255;
-	
+	public static int            instructionCounter = 0;
+	public static int            dataCounter        = 255;
+
 	private static String originalLine;
 	private static String line = "";
 	private static String[] tokens;
 
-	static int line_count;
+	public static int     line_count;
 	private static String command;
-	
+
 	private static Scanner scanner;
 	private static FileWriter fileWriter;
-	
-	static String inputFileName;
+
+	public static String inputFileName;
 	static String outputFileName;
-	
-	static boolean succ;
+
+	public static boolean succ;
 	static int p1res;
 	static int p2res;
 
@@ -64,10 +67,10 @@ public class SML_Compiler {
 
 	// "C:\\Users\\Danae\\Desktop\\projects\\Java\\SML\\Simple.txt"
 	// "C:\\Users\\Danae\\Desktop\\projects\\Java\\SML\\SML.txt"
-	
+
 	public static void main(String[] args) throws FileNotFoundException {
 //		SML_Simulator.zzz();
-		
+
 		System.out.println("hmmm a main mehtod that doesn't do anything...");
 		reset();
 		inputFileName = "C:\\Users\\JIM\\Desktop\\java stuff\\SML\\Simple.txt";
@@ -89,7 +92,7 @@ public class SML_Compiler {
 		catch (FileNotFoundException e) {
 			inputFileName = "stdin";
 		}
-		
+
 		try {
 			fileWriter = new FileWriter(new File(options.get("--output")));
 			outputFileName = options.get("--output");
@@ -97,25 +100,25 @@ public class SML_Compiler {
 		catch (IOException e) {
 			outputFileName = "stdout";
 		}
-		
+
 		if (options.get("-manual").equals("true"))
 			scanner = new Scanner(System.in);
-		
-		if (scanner == null && options.get("-manual").equals("false")) {
+
+		if ((scanner == null) && options.get("-manual").equals("false")) {
 			System.out.println("Compiler Error: no input stream found");
 			res = 1;
 		}
-		if (fileWriter == null && options.get("-screen").equals("false")) {
+		if ((fileWriter == null) && options.get("-screen").equals("false")) {
 			System.out.println("Compiler Error: no output stream found");
 			res = 1;
 		}
-		
+
 		if (res == 1) return res;
-		
+
 		p1res = pass1();
 		p2res = pass2();
 		if (succ) {
-			if (fileWriter != null) 
+			if (fileWriter != null)
 				writeToFile();
 			if (options.get("-screen").equals("true"))
 				writeToScreen();
@@ -125,18 +128,18 @@ public class SML_Compiler {
 		if (options.get("-st").equals("true"))
 			System.out.println(symbolTable);
 
-		return p1res + p2res > 0 ? 1 : 0;
+		return (p1res + p2res) > 0 ? 1 : 0;
 	}
 
 	private static int pass1() {
 		System.out.println("*** Starting compilation\t\t\t ***");
 		while (!line.equals("99 end")) {
-			
+
 			// get line and remove extra whitespace
 			try {originalLine = scanner.nextLine();}
 			catch (NoSuchElementException e) {
 				System.err.printf("error at: %s:\t\t EOF reached; no '99 end' command found\n", inputFileName);
-				return 1;  
+				return 1;
 			}
 			line = removeBlanks(originalLine);
 
@@ -245,7 +248,7 @@ public class SML_Compiler {
 
 				} else if (command.equals(NOOP)) {
 					SMLArray[instructionCounter++] = SML_Executor.NOOP * 0x100;
-					
+
 				} else if (command.equals(COMMENT)) {
 					;
 				} else if (command.equals(INPUT)) {
@@ -256,12 +259,12 @@ public class SML_Compiler {
 							succ = false;
 						} else if (isVariable(var)) {
 							int loc = symbolTable.getSymbolLocation(var, 'V');
-							SMLArray[instructionCounter++] = SML_Executor.READ_INT * 0x100 + loc;
+							SMLArray[instructionCounter++] = (SML_Executor.READ_INT * 0x100) + loc;
 						} else {
 							;
 						}
 					}
-	
+
 				} else if (command.equals(LET)) {
 					String var = tokens[2];
 					if (isConstant(var)) {
@@ -269,16 +272,15 @@ public class SML_Compiler {
 						succ = false;
 					} else if (isVariable(var)){
 						int loc = symbolTable.getSymbolLocation(var, 'V');
-		
+
 						String infix = line.split("=")[1];
-						String postfix = InfixToPostfix.convertToPostfix(infix);
-						PostfixEvaluator.evaluatePostfix(postfix);
-		
-						SMLArray[instructionCounter++] = SML_Executor.STORE * 0x100 + loc;
+						PostfixEvaluator.evaluatePostfix(InfixToPostfix.convertToPostfix(infix));
+
+						SMLArray[instructionCounter++] = (SML_Executor.STORE * 0x100) + loc;
 					} else {
 						;
 					}
-					
+
 //==========================================================================================
 				} else if (command.equals(PRINT)) {
 					String[] vars = line.substring(9).split(" ");
@@ -286,10 +288,10 @@ public class SML_Compiler {
 						if (isVariable(var) || isConstant(var)) {
 							int loc = symbolTable.getSymbolLocation(var, 'C', 'V');
 							String varType = symbolTable.getVarType(var);
-		
+
 							// future: print according to type
 							if (varType.equals("int")) {
-								SMLArray[instructionCounter++] = SML_Executor.WRITE_NL * 0x100 + loc;
+								SMLArray[instructionCounter++] = (SML_Executor.WRITE_NL * 0x100) + loc;
 							} else {
 								System.out.printf("%s:%02d:\t error: variable %s has unknown type %s\n", inputFileName, line_count, var, varType);
 								succ = false;
@@ -298,123 +300,123 @@ public class SML_Compiler {
 							;
 						}
 					}
-					
+
 				} else if (command.equals("goto")) {
 					int target_line = Integer.parseInt(tokens[2]);
-	
+
 					ifgFlags[instructionCounter] = target_line;
 					SMLArray[instructionCounter++] = SML_Executor.BRANCH * 0x100;
-	
+
 				} else if (command.equals(IFGOTO)) {
 					int target_line = Integer.parseInt(tokens[6]);
 					int loc1, loc2;
-	
+
 					String op1 = tokens[2];
 					loc1 = symbolTable.getSymbolLocation(op1, 'C', 'V');
-					
+
 					String op2 = tokens[4];
 					loc2 = symbolTable.getSymbolLocation(op2, 'C', 'V');
-	
+
 					String condition = tokens[3];
 					if (condition.equals("<")) {
-						SMLArray[instructionCounter++] = SML_Executor.LOAD * 0x100 + loc1;
-						SMLArray[instructionCounter++] = SML_Executor.SUBTRACT * 0x100 + loc2;
+						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc1;
+						SMLArray[instructionCounter++] = (SML_Executor.SUBTRACT * 0x100) + loc2;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHNEG * 0x100;
 						ifgFlags[instructionCounter-1] = target_line;
 					} else if (condition.equals(">")) {
-						SMLArray[instructionCounter++] = SML_Executor.LOAD * 0x100 + loc2;
-						SMLArray[instructionCounter++] = SML_Executor.SUBTRACT * 0x100 + loc1;
+						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc2;
+						SMLArray[instructionCounter++] = (SML_Executor.SUBTRACT * 0x100) + loc1;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHNEG * 0x100;
 						ifgFlags[instructionCounter-1] = target_line;
 					} else if (condition.equals("<=")) {
-						SMLArray[instructionCounter++] = SML_Executor.LOAD * 0x100 + loc1;
-						SMLArray[instructionCounter++] = SML_Executor.SUBTRACT * 0x100 + loc2;
+						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc1;
+						SMLArray[instructionCounter++] = (SML_Executor.SUBTRACT * 0x100) + loc2;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHNEG * 0x100;
 						ifgFlags[instructionCounter-1] = target_line;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHZERO * 0x100;
 						ifgFlags[instructionCounter-1] = target_line;
 					} else if (condition.equals(">=")) {
-						SMLArray[instructionCounter++] = SML_Executor.LOAD * 0x100 + loc2;
-						SMLArray[instructionCounter++] = SML_Executor.SUBTRACT * 0x100 + loc1;
+						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc2;
+						SMLArray[instructionCounter++] = (SML_Executor.SUBTRACT * 0x100) + loc1;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHNEG * 0x100;
 						ifgFlags[instructionCounter-1] = target_line;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHZERO * 0x100;
 						ifgFlags[instructionCounter-1] = target_line;
 					} else if (condition.equals("==")) {
-						SMLArray[instructionCounter++] = SML_Executor.LOAD * 0x100 + loc1;
-						SMLArray[instructionCounter++] = SML_Executor.SUBTRACT * 0x100 + loc2;
+						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc1;
+						SMLArray[instructionCounter++] = (SML_Executor.SUBTRACT * 0x100) + loc2;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHZERO * 0x100;
 						ifgFlags[instructionCounter-1] = target_line;
 					} else if (condition.equals("!=")) {
-						SMLArray[instructionCounter++] = SML_Executor.LOAD * 0x100 + loc1;
-						SMLArray[instructionCounter++] = SML_Executor.SUBTRACT * 0x100 + loc2;
+						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc1;
+						SMLArray[instructionCounter++] = (SML_Executor.SUBTRACT * 0x100) + loc2;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHZERO * 0x100;
 						ifgFlags[instructionCounter-1] = -line_count;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCH * 0x100;
-						ifgFlags[instructionCounter-1] = target_line;	
+						ifgFlags[instructionCounter-1] = target_line;
 					} else {
 						System.out.println("Error: invalid if condition");
 					}
 				} else if (command.equals(IF)) {
 					String op1, op2;
 					int loc1, loc2;
-	
+
 					op1 = tokens[2];
 					loc1 = symbolTable.getSymbolLocation(op1, 'C', 'V');
-					
+
 					op2 = tokens[4];
 					loc2 = symbolTable.getSymbolLocation(op2, 'C', 'V');
 					String condition = tokens[3];
 					if (condition.equals("<")) {
-						SMLArray[instructionCounter++] = SML_Executor.LOAD * 0x100 + loc2;
-						SMLArray[instructionCounter++] = SML_Executor.SUBTRACT * 0x100 + loc1;
+						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc2;
+						SMLArray[instructionCounter++] = (SML_Executor.SUBTRACT * 0x100) + loc1;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHZERO * 0x100;
 						ifFlags[line_count][0] = instructionCounter-1;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHNEG * 0x100;
 						ifFlags[line_count][1] = instructionCounter-1;
 					} else if (condition.equals(">")) {
-						SMLArray[instructionCounter++] = SML_Executor.LOAD * 0x100 + loc1;
-						SMLArray[instructionCounter++] = SML_Executor.SUBTRACT * 0x100 + loc2;
+						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc1;
+						SMLArray[instructionCounter++] = (SML_Executor.SUBTRACT * 0x100) + loc2;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHZERO * 0x100;
 						ifFlags[line_count][0] = instructionCounter-1;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHNEG * 0x100;
 						ifFlags[line_count][1] = instructionCounter-1;
 					} else if (condition.equals("<=")) {
-						SMLArray[instructionCounter++] = SML_Executor.LOAD * 0x100 + loc2;
-						SMLArray[instructionCounter++] = SML_Executor.SUBTRACT * 0x100 + loc1;
+						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc2;
+						SMLArray[instructionCounter++] = (SML_Executor.SUBTRACT * 0x100) + loc1;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHNEG* 0x100;
 						ifFlags[line_count][0] = instructionCounter-1;
 					} else if (condition.equals(">=")) {
-						SMLArray[instructionCounter++] = SML_Executor.LOAD * 0x100 + loc1;
-						SMLArray[instructionCounter++] = SML_Executor.SUBTRACT * 0x100 + loc2;
+						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc1;
+						SMLArray[instructionCounter++] = (SML_Executor.SUBTRACT * 0x100) + loc2;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHNEG* 0x100;
 						ifFlags[line_count][0] = instructionCounter-1;
 					} else if (condition.equals("==")) {
-						SMLArray[instructionCounter++] = SML_Executor.LOAD * 0x100 + loc1;
-						SMLArray[instructionCounter++] = SML_Executor.SUBTRACT * 0x100 + loc2;
-						SMLArray[instructionCounter++] = SML_Executor.BRANCHZERO * 0x100 + instructionCounter+1;
+						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc1;
+						SMLArray[instructionCounter++] = (SML_Executor.SUBTRACT * 0x100) + loc2;
+						SMLArray[instructionCounter++] = (SML_Executor.BRANCHZERO * 0x100) + instructionCounter+1;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCH * 0x100;
 						ifFlags[line_count][1] = instructionCounter-1;
 					} else if (condition.equals("!=")) {
-						SMLArray[instructionCounter++] = SML_Executor.LOAD * 0x100 + loc1;
-						SMLArray[instructionCounter++] = SML_Executor.SUBTRACT * 0x100 + loc2;
+						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc1;
+						SMLArray[instructionCounter++] = (SML_Executor.SUBTRACT * 0x100) + loc2;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHZERO * 0x100;
 						ifFlags[line_count][0] = instructionCounter-1;
 					} else {
 						System.out.println("Error: invalid if condition");
 					}
-	
+
 				} else if (command.equals(ELSE)) {
 					SMLArray[instructionCounter++] = SML_Executor.BRANCH * 0x100;
 					ifFlags[line_count][0] = instructionCounter-1;
-	
+
 					String target_line = tokens[2];
 					for (int i=0; i<ifFlags[0].length; i++) {
 						int branch_loc = ifFlags[Integer.parseInt(target_line)][i];
 						if (branch_loc != -1)
-							SMLArray[branch_loc] += symbolTable.getSymbolLocation(String.valueOf(line_count))+1;					
+							SMLArray[branch_loc] += symbolTable.getSymbolLocation(String.valueOf(line_count))+1;
 					}
-					
+
 				} else if (command.equals(ENDIF)) {
 					String target_line = tokens[2];
 					for (int i=0; i<ifFlags[0].length; i++) {
@@ -422,67 +424,67 @@ public class SML_Compiler {
 						if (branch_loc != -1)
 							SMLArray[branch_loc] += symbolTable.getSymbolLocation(String.valueOf(line_count));
 					}
-	
+
 				} else if (command.equals(WHILE)) {
 					String op1, op2;
 					int loc1, loc2;
-	
+
 					op1 = tokens[2];
 					loc1 = symbolTable.getSymbolLocation(op1, 'C', 'V');
-					
+
 					op2 = tokens[4];
 					loc2 = symbolTable.getSymbolLocation(op2, 'C', 'V');
 					String condition = tokens[3];
 					if (condition.equals("<")) {
-						SMLArray[instructionCounter++] = SML_Executor.LOAD * 0x100 + loc2;
-						SMLArray[instructionCounter++] = SML_Executor.SUBTRACT * 0x100 + loc1;
+						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc2;
+						SMLArray[instructionCounter++] = (SML_Executor.SUBTRACT * 0x100) + loc1;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHZERO * 0x100;
 						whileFlags[line_count][0] = instructionCounter-1;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHNEG * 0x100;
 						whileFlags[line_count][1] = instructionCounter-1;
 					} else if (condition.equals(">")) {
-						SMLArray[instructionCounter++] = SML_Executor.LOAD * 0x100 + loc1;
-						SMLArray[instructionCounter++] = SML_Executor.SUBTRACT * 0x100 + loc2;
+						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc1;
+						SMLArray[instructionCounter++] = (SML_Executor.SUBTRACT * 0x100) + loc2;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHZERO * 0x100;
 						whileFlags[line_count][0] = instructionCounter-1;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHNEG * 0x100;
 						whileFlags[line_count][1] = instructionCounter-1;
 					} else if (condition.equals("<=")) {
-						SMLArray[instructionCounter++] = SML_Executor.LOAD * 0x100 + loc2;
-						SMLArray[instructionCounter++] = SML_Executor.SUBTRACT * 0x100 + loc1;
+						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc2;
+						SMLArray[instructionCounter++] = (SML_Executor.SUBTRACT * 0x100) + loc1;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHNEG* 0x100;
 						whileFlags[line_count][0] = instructionCounter-1;
 					} else if (condition.equals(">=")) {
-						SMLArray[instructionCounter++] = SML_Executor.LOAD * 0x100 + loc1;
-						SMLArray[instructionCounter++] = SML_Executor.SUBTRACT * 0x100 + loc2;
+						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc1;
+						SMLArray[instructionCounter++] = (SML_Executor.SUBTRACT * 0x100) + loc2;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHNEG* 0x100;
 						whileFlags[line_count][0] = instructionCounter-1;
 					} else if (condition.equals("==")) {
-						SMLArray[instructionCounter++] = SML_Executor.LOAD * 0x100 + loc1;
-						SMLArray[instructionCounter++] = SML_Executor.SUBTRACT * 0x100 + loc2;
-						SMLArray[instructionCounter++] = SML_Executor.BRANCHZERO * 0x100 + instructionCounter+1;
+						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc1;
+						SMLArray[instructionCounter++] = (SML_Executor.SUBTRACT * 0x100) + loc2;
+						SMLArray[instructionCounter++] = (SML_Executor.BRANCHZERO * 0x100) + instructionCounter+1;
 						whileFlags[line_count][0] = instructionCounter-1;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCH * 0x100;
 						whileFlags[line_count][1] = instructionCounter-1;
 					} else if (condition.equals("!=")) {
-						SMLArray[instructionCounter++] = SML_Executor.LOAD * 0x100 + loc1;
-						SMLArray[instructionCounter++] = SML_Executor.SUBTRACT * 0x100 + loc2;
+						SMLArray[instructionCounter++] = (SML_Executor.LOAD * 0x100) + loc1;
+						SMLArray[instructionCounter++] = (SML_Executor.SUBTRACT * 0x100) + loc2;
 						SMLArray[instructionCounter++] = SML_Executor.BRANCHZERO * 0x100;
 						whileFlags[line_count][0] = instructionCounter-1;
 					} else {
 						System.out.println("Error: invalid if condition");
 					}
 				} else if (command.equals(ENDWHILE)) {
-					SMLArray[instructionCounter++] = SML_Executor.BRANCH * 0x100 + symbolTable.getSymbolLocation(tokens[2], 'L');
-	
-	
+					SMLArray[instructionCounter++] = (SML_Executor.BRANCH * 0x100) + symbolTable.getSymbolLocation(tokens[2], 'L');
+
+
 					String target_line = tokens[2];
 					for (int i=0; i<whileFlags[0].length; i++) {
 						int branch_loc = whileFlags[Integer.parseInt(target_line)][i];
-						if (branch_loc != -1 && SMLArray[branch_loc] % 0x100 == 0)
+						if ((branch_loc != -1) && ((SMLArray[branch_loc] % 0x100) == 0))
 							SMLArray[branch_loc] += symbolTable.getSymbolLocation(String.valueOf(line_count))+1;
 					}
-	
+
 				} else if (command.equals(END)) {
 					SMLArray[instructionCounter] = SML_Executor.HALT * 0x100;
 				} else {
@@ -510,7 +512,7 @@ public class SML_Compiler {
 		System.out.println("*** Compilation ended\t\t\t\t ***");
 		return 0;
 	}
-	
+
 	private static void writeToFile() throws IOException {
 		String s = "";
 		for (int command : SMLArray)
@@ -519,12 +521,12 @@ public class SML_Compiler {
 		fileWriter.close();
 		System.out.println("*** SML instructions written to file ***");
 	}
-	
+
 	private static void writeToScreen() {
 		System.out.println("\nSML code:");
 		boolean zeros = false;
 		for (int i=0; i<SMLArray.length; i++) {
-			if (SMLArray[i] == 0 && !zeros) {
+			if ((SMLArray[i] == 0) && !zeros) {
 				zeros = true;
 				System.out.println("** ****");
 			} else if (SMLArray[i] != 0)
@@ -533,24 +535,24 @@ public class SML_Compiler {
 				System.out.printf("%02x %04x\n", i, SMLArray[i]);
 		}
 	}
-	
+
 	private static void reset() {
 		for (int i=0; i<SMLArray.length; i++) SMLArray[i] = 0;
 		for (int i=0; i<ifgFlags.length; i++) ifgFlags[i] = -1;
 		for (int i=0; i<ifFlags.length; i++) for (int j=0; j<ifFlags[0].length; j++) ifFlags[i][j] = -1;
 		for (int i=0; i<ifFlags.length; i++) for (int j=0; j<whileFlags[0].length; j++) whileFlags[i][j] = -1;
-		
+
 		symbolTable.clear();
-		
+
 		instructionCounter = 0;
 		dataCounter = 255;
-		
+
 		scanner = null;
 		fileWriter = null;
-		
+
 		inputFileName = outputFileName = "";
 		succ = true;
-		
+
 		line = "";
 		tokens = null;
 		resetMap();
@@ -571,7 +573,7 @@ public class SML_Compiler {
 		} catch (NumberFormatException e) {return false;}
 	}
 	private static boolean isValidName(String name) {
-		if ('0' <= name.charAt(0) && name.charAt(0) <= '9') return false;
+		if (('0' <= name.charAt(0)) && (name.charAt(0) <= '9')) return false;
 		for (int i=0; i<name.length(); i++) {
 			boolean flag = false;
 			for (int j=0; j<valid.length; j++)
@@ -595,7 +597,7 @@ public class SML_Compiler {
 		char c;
 		for (int i=0; i<s.length(); i++) {
 			c = s.charAt(i);
-			if ((c == ' ' && !space) || c != ' ') {
+			if (((c == ' ') && !space) || (c != ' ')) {
 				space = c != ' ' ? false : !space;
 				sb.append(c);
 			}
