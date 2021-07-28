@@ -19,12 +19,12 @@ public class SML_Executor {
 
 	static final Memory memory = new Memory(256);
 
-	static final int READ_INT = 0x10;
-	static final int READ_STRING = 0x11;
-	static final int WRITE = 0x12;
-	static final int WRITE_NL = 0x13;
-	static final int WRITE_STRING = 0x14;
-	static final int WRITE_STRING_NL = 0x15;
+	static final int        READ_INT        = 0x10;
+	static final int        READ_STRING     = 0x11;
+	static final int        WRITE           = 0x12;
+	static final int        WRITE_NL        = 0x13;
+	static final int        WRITE_STRING    = 0x14;
+	static final int        WRITE_STRING_NL = 0x15;
 	public static final int LOAD            = 0x20;
 	public static final int STORE           = 0x21;
 	public static final int ADD             = 0x30;
@@ -33,15 +33,15 @@ public class SML_Executor {
 	public static final int MULTIPLY        = 0x33;
 	public static final int MOD             = 0x34;
 	public static final int POW             = 0x35;
-	static final int BRANCH = 0x40;
-	static final int BRANCHNEG = 0x41;
-	static final int BRANCHZERO = 0x42;
-	static final int HALT = 0x43;
-	static final int DUMP = 0xf0;
-	static final int NOOP = 0xf1;
+	static final int        BRANCH          = 0x40;
+	static final int        BRANCHNEG       = 0x41;
+	static final int        BRANCHZERO      = 0x42;
+	static final int        HALT            = 0x43;
+	static final int        DUMP            = 0xf0;
+	static final int        NOOP            = 0xf1;
 
 	private static int lineCount;
-	static int             accumulator;
+	static int         accumulator;
 	static int         instructionCounter;
 	private static int instructionRegister;
 	private static int operationCode;
@@ -51,15 +51,7 @@ public class SML_Executor {
 	public static void main(String[] args) {
 		System.out.println("*** Welcome to Program!\t\t\t ***");
 
-		Requirements reqs = new Requirements();
-
-		reqs.add("input", StringType.ANY);
-		reqs.add("output", StringType.ANY);
-		reqs.add("screen");
-
-		reqs.fulfil("input", "stdin");
-		reqs.fulfil("output", "#");
-		reqs.fulfil("screen", false);
+		Requirements reqs = getRequirements();
 
 		for (int i = 0; i < args.length; ++i) {
 			if (args[i].startsWith("--"))
@@ -71,6 +63,20 @@ public class SML_Executor {
 		}
 
 		execute(reqs);
+	}
+
+	public static Requirements getRequirements() {
+		Requirements reqs = new Requirements();
+
+		reqs.add("input", StringType.ANY);
+		reqs.add("output", StringType.ANY);
+		reqs.add("screen");
+
+		reqs.fulfil("input", "stdin");
+		reqs.fulfil("output", "#");
+		reqs.fulfil("screen", false);
+
+		return reqs;
 	}
 
 	static void execute(Requirements reqs) {
@@ -105,6 +111,7 @@ public class SML_Executor {
 
 	private static void executeInstructionsFromMemory() {
 		System.out.println("*** Program execution begins\t\t ***");
+		memory.initialiseForExecution();
 		instructionCounter = instructionRegister = operationCode = operand = accumulator = 0;
 		halt = false;
 
@@ -128,30 +135,30 @@ public class SML_Executor {
 		@SuppressWarnings("resource")
 		Scanner scanner = new Scanner(System.in);
 
-			boolean valid;
-			int     input     = 0;
-			String userInput = "";
+		boolean valid;
+		int     input     = 0;
+		String  userInput = "";
 
-			while (!userInput.equals("-ffff")) {
-				valid = false;
-				while (!valid) {
-					out("%02d ? ", lineCount);
-					userInput = scanner.nextLine();
+		while (!userInput.equals("-ffff")) {
+			valid = false;
+			while (!valid) {
+				out("%02d ? ", lineCount);
+				userInput = scanner.nextLine();
 
-					try {
-						input = Integer.parseInt(userInput, 16);
-						valid = (-0xffff <= input) && (input <= 0xffff);
-						if (!valid)
-							err("%s is out of range (-0xffff to 0xffff).%n",
-							        userInput);
-					} catch (NumberFormatException exc) {
-						valid = false;
-						err("%s is not a valid int.%n", userInput);
-					}
+				try {
+					input = Integer.parseInt(userInput, 16);
+					valid = (-0xffff <= input) && (input <= 0xffff);
+					if (!valid)
+						err("%s is out of range (-0xffff to 0xffff).%n",
+						        userInput);
+				} catch (NumberFormatException exc) {
+					valid = false;
+					err("%s is not a valid int.%n", userInput);
 				}
-				memory.write(lineCount++, input);
 			}
-			out("*** Program loading completed\t\t ***");
+			memory.write(lineCount++, input);
+		}
+		out("*** Program loading completed\t\t ***");
 	}
 
 	private static void loadToMemoryFromFile(File file) {
@@ -183,11 +190,11 @@ public class SML_Executor {
 	}
 
 	static void out(String text, Object... args) {
-		System.out.printf(text, args);
+		System.out.printf("EXEC: " + text, args);
 	}
 
 	static void err(String text, Object... args) {
-		System.err.printf(text, args);
+		System.err.printf("EXECERROR: " + text, args);
 	}
 
 	private static String getDumpString() {
