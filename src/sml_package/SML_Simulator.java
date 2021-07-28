@@ -7,7 +7,6 @@ import java.util.Scanner;
 public class SML_Simulator {
 	static final Scanner scanner = new Scanner(System.in);
 
-	static final int[] memory = new int[256];
 	static final String SimpleFile = "C:\\Users\\Danae\\Desktop\\projects\\Java\\SML_new\\Simple.txt";
 	static final String SMLFile = "C:\\Users\\Danae\\Desktop\\projects\\Java\\SML_new\\SML.txt";
 	static final String OutputFile = "C:\\Users\\Danae\\Desktop\\projects\\Java\\SML_new\\out.txt";
