@@ -175,27 +175,27 @@ public enum Command {
 	BRANCH {
 		@Override
 		public void execute() {
-			SML_Executor.instructionCounter = operand;
+			SML_Executor.memory.setInstructionPointer(operand);
 		}
 	},
 	BRANCHNEG {
 		@Override
 		public void execute() {
 			if (SML_Executor.accumulator < 0)
-				SML_Executor.instructionCounter = operand;
+				SML_Executor.memory.setInstructionPointer(operand);
 		}
 	},
 	BRANCHZERO {
 		@Override
 		public void execute() {
 			if (SML_Executor.accumulator == 0)
-				SML_Executor.instructionCounter = operand;
+				SML_Executor.memory.setInstructionPointer(operand);
 		}
 	},
 	HALT {
 		@Override
 		public void execute() {
-			SML_Executor.halt = true;
+			SML_Executor.halt();
 			System.out.println("*** Program execution terminated\t ***");
 		}
 	},
@@ -213,6 +213,8 @@ public enum Command {
 	};
 
 	protected int operand;
+
+	public abstract void execute();
 
 	public static Command from(int operationCode, int operand) {
 		Command command = from0(operationCode);
@@ -272,6 +274,4 @@ public enum Command {
 			return null;
 		}
 	}
-
-	public abstract void execute();
 }
