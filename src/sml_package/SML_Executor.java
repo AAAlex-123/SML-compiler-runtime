@@ -8,6 +8,9 @@ import java.util.HashMap;
 import java.util.Scanner;
 
 public class SML_Executor {
+
+	static final Memory memory = new Memory(256);
+
 	static final int READ_INT = 0x10;
 	static final int READ_STRING = 0x11;
 	static final int WRITE = 0x12;
@@ -129,14 +132,14 @@ public class SML_Executor {
 
 				ok = (-0xffff <= int_input) && (int_input <= 0xffff);
 			}
-			SML_Simulator.memory[lineCount++] = int_input;
+			memory.write(lineCount++, int_input);
 		}
 		System.out.println("*** Program loading completed\t\t ***");
 	}
 
 	static void read() {
 		while (scanner.hasNext())
-			SML_Simulator.memory[lineCount++] = Integer.parseInt(scanner.nextLine(), 16);
+			memory.write(lineCount++, Integer.parseInt(scanner.nextLine(), 16);
 		System.out.println("*** Program loading completed\t\t ***");
 	}
 
@@ -147,7 +150,7 @@ public class SML_Executor {
 		halt = false;
 
 		while (!halt) {
-			instructionRegister = SML_Simulator.memory[instructionCounter++];
+			instructionRegister = memory.read(instructionCounter++);
 			operationCode = instructionRegister / 0x100;
 			operand = instructionRegister % 0x100;
 
@@ -164,105 +167,74 @@ public class SML_Executor {
 
 					ok = (-0xffff <= int_input) && (int_input <= 0xffff);
 				};
-				SML_Simulator.memory[operand] = int_input;
+				memory.write(operand, int_input);
 			} else if (operationCode == READ_STRING) { 				// READ_STRING
 				System.out.print("> ");
 				String s = scanner.nextLine();
 				char[] arr = s.toCharArray();
-				SML_Simulator.memory[operand] = arr.length * 0x100;
-				int memory_index = operand;
-				int i=0;
-				while (i < arr.length) {
-					if ((i%2) == 1) {
-						SML_Simulator.memory[memory_index] = arr[i] * 0x100;
-					} else {
-						SML_Simulator.memory[memory_index++] += arr[i];
-					}
-					i++;
-				}
+				memory.writeChars(operand, arr);
 			} else if (operationCode == WRITE)						// WRITE_INT
-				System.out.printf("SML: %04x", SML_Simulator.memory[operand]);
+				System.out.printf("SML: %04x", memory.read(operand));
 			else if (operationCode == WRITE_NL)						// WRITE_INT_NL
-				System.out.printf("SML: %04x\n", SML_Simulator.memory[operand]);
+				System.out.printf("SML: %04x\n", memory.read(operand));
 			else if (operationCode == WRITE_STRING) {				// WRITE_STRING
-				int memory_index = operand;
-				int length = SML_Simulator.memory[memory_index] / 0x100;
-				int i = 0;
-				char[] arr = new char[length];
-				while (i < length) {
-					if ((i%2) == 0) {
-						arr[i] = (char) (SML_Simulator.memory[memory_index++] % 0x100);
-					} else {
-						arr[i] = (char) (SML_Simulator.memory[memory_index] / 0x100);
-					}
-				}
+				char[] arr = memory.readChars(operand);
 				for (char c : arr) System.out.print(c);
 			} else if (operationCode == WRITE_STRING_NL) {			// WRITE_STRING_NL
-				int memory_index = operand;
-				int length = SML_Simulator.memory[memory_index] / 0x100;
-				int i = 0;
-				char[] arr = new char[length];
-				while (i < length) {
-					if ((i%2) == 0) {
-						arr[i] = (char) (SML_Simulator.memory[memory_index++] % 0x100);
-					} else {
-						arr[i] = (char) (SML_Simulator.memory[memory_index] / 0x100);
-					}
-					i++;
-				}
+				char[] arr = memory.readChars(operand);
 				for (char c : arr) System.out.print(c);
 				System.out.println();
 			} else if (operationCode == LOAD)						// LOAD
-				accumulator = SML_Simulator.memory[operand];
+				accumulator = memory.read(operand);
 			else if (operationCode == STORE)						// STORE
-				SML_Simulator.memory[operand] = accumulator;
+				memory.write(operand, accumulator);
 			else if (operationCode == ADD) {						// ADD
-				accumulator += SML_Simulator.memory[operand];
+				accumulator += memory.read(operand);
 				if ((accumulator < -0xffff) || (accumulator > 0xffff)) {
 					System.out.println("*** Overflow Error\t\t ***");
 
-					accumulator -= SML_Simulator.memory[operand];
+					accumulator -= memory.read(operand);
 					System.out.println("\n*** Program execution abnormally terminated ***");
 					return 1;
 				}
 			} else if (operationCode == SUBTRACT) {					// SUBTRACT
-				accumulator -= SML_Simulator.memory[operand];
+				accumulator -= memory.read(operand);
 				if ((accumulator < -0xffff) || (accumulator > 0xffff)) {
 					System.out.println("*** Overflow Error\t\t ***");
-					accumulator += SML_Simulator.memory[operand];
+					accumulator += memory.read(operand);
 					System.out.println("\n*** Program execution abnormally terminated ***");
 					return 1;
 				}
 			} else if (operationCode == DIVIDE) {					// DIVIDE
-				if (SML_Simulator.memory[operand] == 0) {
+				if (memory.read(operand); == 0) {
 					System.out.println("*** Attempt to divide by zero\t\t ***");
 					System.out.println("\n*** Program execution abnormally terminated ***");
 					return 1;
 				}
-				accumulator /= SML_Simulator.memory[operand];
+				accumulator /= memory.read(operand);
 				if ((accumulator < -0xffff) || (accumulator > 0xffff)) {
 					System.out.println("*** Overflow Error\t\t ***");
-					accumulator *= SML_Simulator.memory[operand];
+					accumulator *= memory.read(operand);
 					System.out.println("\n*** Program execution abnormally terminated ***");
 					return 1;
 				}
 			} else if (operationCode == MULTIPLY)	{				// MULTIPLY
-				accumulator *= SML_Simulator.memory[operand];
+				accumulator *= memory.read(operand);
 				if ((accumulator < -0xffff) || (accumulator > 0xffff)) {
 					System.out.println("*** Overflow Error\t\t ***");
-					accumulator /= SML_Simulator.memory[operand];
+					accumulator /= memory.read(operand);
 					System.out.println("\n*** Program execution abnormally terminated ***");
 					return 1;
 				}
 			} else if (operationCode == MOD)	{					// REMAINDER
-				if (SML_Simulator.memory[operand] == 0) {
+				if (memory.read(operand); == 0) {
 					System.out.println("*** Attempt to divide by zero\t\t ***");
 					System.out.println("\n*** Program execution abnormally terminated ***");
 					return 1;
 				}
-				accumulator %= SML_Simulator.memory[operand];
+				accumulator %= memory.read(operand);
 			} else if (operationCode == POW) {
-				double temp = Math.pow(accumulator, SML_Simulator.memory[operand]);
+				double temp = Math.pow(accumulator, memory.read(operand););
 				if ((temp < -0xffff) || (temp > 0xffff)) {
 					System.out.println("*** Overflow Error\t\t ***");
 					System.out.println("\n*** Program execution abnormally terminated ***");
@@ -314,19 +286,13 @@ public class SML_Executor {
 		s += String.format("operand\t\t\t\t%s\r\n", operand);
 
 		s += String.format("\r\n\r\nMEMORY:\r\n  ");
-		for (int i=0; i<16; i++) s += String.format("     %x", i);
-		s += "\r\n";
-		for (int i=0; i<16; i++) {
-			s += String.format("%x0", i);
-			for (int j=0; j<16; j++) {
-				s += String.format(" %s%s", SML_Simulator.memory[(16*i)+j]>=0 ? "+" : "-", String.format("%04x", SML_Simulator.memory[(16*i)+j] & 0x0FFFF));
-			}
-			s += "\r\n";
-		}
+		s += memory.toString();
+
 		return s;
 	}
 
 	private static void reset() {
+		memory.clear();
 		ok = false;
 		lineCount = 00;
 		userInput = "";
