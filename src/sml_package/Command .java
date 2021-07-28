@@ -5,44 +5,41 @@ import java.util.Scanner;
 public enum Command {
 
 	READ_INT {
-
 		@Override
 		public void execute() {
-			try (Scanner scanner = new Scanner(System.in)) {
+			@SuppressWarnings("resource")
+			Scanner scanner = new Scanner(System.in);
 
-				boolean valid = false;
-				int     input = 0;
+			boolean valid = false;
+			int     input = 0;
 
-				while (!valid) {
-					SML_Executor.out("> ");
-					String userInput = scanner.nextLine();
-					try {
-						input = Integer.parseInt(userInput, 16);
-						valid = (-0xffff <= input) && (input <= 0xffff);
-						if (!valid)
-							SML_Executor.err("%s is out of range (-0xffff to 0xffff).%n",
-							        userInput);
-					} catch (NumberFormatException exc) {
-						valid = false;
-						SML_Executor.err("%s is not a valid int.%n", userInput);
-					}
+			while (!valid) {
+				SML_Executor.out("> ");
+				String userInput = scanner.nextLine();
+				try {
+					input = Integer.parseInt(userInput, 16);
+					valid = (-0xffff <= input) && (input <= 0xffff);
+					if (!valid)
+						SML_Executor.err("%s is out of range (-0xffff to 0xffff).%n", userInput);
+				} catch (NumberFormatException exc) {
+					valid = false;
+					SML_Executor.err("%s is not a valid int.%n", userInput);
 				}
-				SML_Executor.memory.write(operand, input);
 			}
+			SML_Executor.memory.write(operand, input);
 		}
 	},
 
 	READ_STRING {
-
 		@Override
 		public void execute() {
-			try (Scanner s = new Scanner(System.in)) {
+			@SuppressWarnings("resource")
+			Scanner scanner = new Scanner(System.in);
 
-				SML_Executor.out("> ");
-				String input = s.nextLine();
-				char[] array = input.toCharArray();
-				SML_Executor.memory.writeChars(operand, array);
-			}
+			SML_Executor.out("> ");
+			String input = scanner.nextLine();
+			char[] array = input.toCharArray();
+			SML_Executor.memory.writeChars(operand, array);
 		}
 	},
 
@@ -205,7 +202,7 @@ public enum Command {
 	DUMP {
 		@Override
 		public void execute() {
-			SML_Executor.writeToScreen();
+			SML_Executor.out("%s", SML_Executor.memory);
 		}
 	},
 	NOOP {
