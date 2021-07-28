@@ -77,10 +77,9 @@ public class Memory {
 			sb.append(sf("%x0", i));
 			for (int j = 0; j < 16; j++) {
 				int val = read((16 * i) + j);
-				sb.append(" ");
-				if (val < 0)
-					sb.append("-");
-				sb.append(sf("%04x", val));
+				sb.append(" ")
+				        .append(val < 0 ? "-" : "+")
+				        .append(sf("%04x", val));
 			}
 
 			sb.append("\n");
