@@ -9,6 +9,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Scanner;
 
+import memory.CodeReader;
+import memory.Memory;
 import requirement.requirements.AbstractRequirement;
 import requirement.requirements.Requirements;
 import requirement.requirements.StringType;
@@ -17,7 +19,7 @@ public class SML_Executor {
 
 	private SML_Executor() {}
 
-	static final Memory memory = new Memory(256);
+	static final CodeReader memory = new Memory(256);
 
 	static final int        READ_INT        = 0x10;
 	static final int        READ_STRING     = 0x11;
