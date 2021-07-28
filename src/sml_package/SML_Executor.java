@@ -143,6 +143,14 @@ public class SML_Executor {
 		System.out.println("*** Program loading completed\t\t ***");
 	}
 
+	static void out(String text, Object... args) {
+		System.out.printf(text, args);
+	}
+
+	static void err(String text, Object... args) {
+		System.err.printf(text, args);
+	}
+
 	static int executeInstructions() {
 		scanner = new Scanner(System.in);
 		System.out.println("*** Program execution begins\t\t ***");
@@ -150,121 +158,13 @@ public class SML_Executor {
 		halt = false;
 
 		while (!halt) {
-			instructionRegister = memory.read(instructionCounter++);
+			instructionRegister = memory.fetchInstruction();
 			operationCode = instructionRegister / 0x100;
 			operand = instructionRegister % 0x100;
 
-			if (operationCode == READ_INT) {						// READ_INT
-				int int_input = 0;
-				ok = false;
-				while (!ok) {
-					System.out.print("> ");
-					userInput = scanner.nextLine();
-
-					ok = true;
-					try {int_input = Integer.parseInt(userInput, 16);}
-					catch (NumberFormatException exc) {ok = false; int_input=0x10000;}
-
-					ok = (-0xffff <= int_input) && (int_input <= 0xffff);
-				};
-				memory.write(operand, int_input);
-			} else if (operationCode == READ_STRING) { 				// READ_STRING
-				System.out.print("> ");
-				String s = scanner.nextLine();
-				char[] arr = s.toCharArray();
-				memory.writeChars(operand, arr);
-			} else if (operationCode == WRITE)						// WRITE_INT
-				System.out.printf("SML: %04x", memory.read(operand));
-			else if (operationCode == WRITE_NL)						// WRITE_INT_NL
-				System.out.printf("SML: %04x\n", memory.read(operand));
-			else if (operationCode == WRITE_STRING) {				// WRITE_STRING
-				char[] arr = memory.readChars(operand);
-				for (char c : arr) System.out.print(c);
-			} else if (operationCode == WRITE_STRING_NL) {			// WRITE_STRING_NL
-				char[] arr = memory.readChars(operand);
-				for (char c : arr) System.out.print(c);
-				System.out.println();
-			} else if (operationCode == LOAD)						// LOAD
-				accumulator = memory.read(operand);
-			else if (operationCode == STORE)						// STORE
-				memory.write(operand, accumulator);
-			else if (operationCode == ADD) {						// ADD
-				accumulator += memory.read(operand);
-				if ((accumulator < -0xffff) || (accumulator > 0xffff)) {
-					System.out.println("*** Overflow Error\t\t ***");
-
-					accumulator -= memory.read(operand);
-					System.out.println("\n*** Program execution abnormally terminated ***");
-					return 1;
-				}
-			} else if (operationCode == SUBTRACT) {					// SUBTRACT
-				accumulator -= memory.read(operand);
-				if ((accumulator < -0xffff) || (accumulator > 0xffff)) {
-					System.out.println("*** Overflow Error\t\t ***");
-					accumulator += memory.read(operand);
-					System.out.println("\n*** Program execution abnormally terminated ***");
-					return 1;
-				}
-			} else if (operationCode == DIVIDE) {					// DIVIDE
-				if (memory.read(operand); == 0) {
-					System.out.println("*** Attempt to divide by zero\t\t ***");
-					System.out.println("\n*** Program execution abnormally terminated ***");
-					return 1;
-				}
-				accumulator /= memory.read(operand);
-				if ((accumulator < -0xffff) || (accumulator > 0xffff)) {
-					System.out.println("*** Overflow Error\t\t ***");
-					accumulator *= memory.read(operand);
-					System.out.println("\n*** Program execution abnormally terminated ***");
-					return 1;
-				}
-			} else if (operationCode == MULTIPLY)	{				// MULTIPLY
-				accumulator *= memory.read(operand);
-				if ((accumulator < -0xffff) || (accumulator > 0xffff)) {
-					System.out.println("*** Overflow Error\t\t ***");
-					accumulator /= memory.read(operand);
-					System.out.println("\n*** Program execution abnormally terminated ***");
-					return 1;
-				}
-			} else if (operationCode == MOD)	{					// REMAINDER
-				if (memory.read(operand); == 0) {
-					System.out.println("*** Attempt to divide by zero\t\t ***");
-					System.out.println("\n*** Program execution abnormally terminated ***");
-					return 1;
-				}
-				accumulator %= memory.read(operand);
-			} else if (operationCode == POW) {
-				double temp = Math.pow(accumulator, memory.read(operand););
-				if ((temp < -0xffff) || (temp > 0xffff)) {
-					System.out.println("*** Overflow Error\t\t ***");
-					System.out.println("\n*** Program execution abnormally terminated ***");
-					return 1;
-				}
-				accumulator = (int) temp;
-			} else if (operationCode == BRANCH)	{					// BRANCH
-				instructionCounter = operand;
-			} else if (operationCode == BRANCHNEG) {				// BRANCHNEG
-				if (accumulator < 0)
-					instructionCounter = operand;
-			} else if (operationCode == BRANCHZERO) {				// BRANCHZERO
-				if (accumulator == 0)
-					instructionCounter = operand;
-			} else if (operationCode == HALT) {						// HALT
-				halt = true;
-				System.out.println("*** Program execution terminated\t ***");
-				return 0;
-			} else if (operationCode == DUMP) {
-				writeToScreen();
-			} else if (operationCode == NOOP) {
-				;
-			} else {
-				System.out.printf("*** Invalid Operation Code: %02x\t ***\n", operationCode);
-				System.out.println("\n*** Program execution abnormally terminated ***");
-				return 1;
-			}
+			Command.from(operationCode, operand).execute();
 		}
-		System.out.println(":(");
-		return -1;
+		return 0;
 	}
 
 	static void writeToFile() throws IOException {
