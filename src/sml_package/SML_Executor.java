@@ -1,13 +1,21 @@
 package sml_package;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Scanner;
 
+import requirement.requirements.AbstractRequirement;
+import requirement.requirements.Requirements;
+import requirement.requirements.StringType;
+
 public class SML_Executor {
+
+	private SML_Executor() {}
 
 	static final Memory memory = new Memory(256);
 
@@ -32,127 +40,70 @@ public class SML_Executor {
 	static final int DUMP = 0xf0;
 	static final int NOOP = 0xf1;
 
-	private static boolean ok = false;
-	private static int lineCount = 00;
-	private static String userInput = "";
-
-	private static int accumulator;
-	private static int instructionCounter;
+	private static int lineCount;
+	static int             accumulator;
+	static int         instructionCounter;
 	private static int instructionRegister;
 	private static int operationCode;
 	private static int operand;
-	private static boolean halt;
+	static boolean     halt;
 
-	private static Scanner scanner;
-	private static FileWriter fileWriter;
+	public static void main(String[] args) {
+		System.out.println("*** Welcome to Program!\t\t\t ***");
 
-	// "C:\\Users\\Danae\\Desktop\\projects\\Java\\SML\\SML.txt";
-	// "C:\\Users\\Danae\\Desktop\\projects\\Java\\SML\\out.txt";
+		Requirements reqs = new Requirements();
 
-	public static void main(String[] args) throws IOException {
-		scanner = new Scanner(System.in);
-		try {
-			System.out.println("*** Welcome to Program!\t\t\t ***");
-			scanner = new Scanner(new File(args[0]));
-		} catch (IndexOutOfBoundsException ioob) {
-			System.out.println("*** Welcome to Program!\t\t\t ***");
-			System.out.println("*** Please enter your program one instruction\t ***");
-			System.out.println("*** (or data word) at a time. I will display\t ***");
-			System.out.println("*** the location number and a quesiton mark (?). ***");
-			System.out.println("*** You then type the word for that location.\t ***");
-			System.out.println("*** Type -ffff to stop entering your program.\t ***");
-			System.out.println("*** Note: all numbers are interpreted as hex.\t ***");
-			manualRead();
+		reqs.add("input", StringType.ANY);
+		reqs.add("output", StringType.ANY);
+		reqs.add("screen");
+
+		reqs.fulfil("input", "stdin");
+		reqs.fulfil("output", "#");
+		reqs.fulfil("screen", false);
+
+		for (int i = 0; i < args.length; ++i) {
+			if (args[i].startsWith("--"))
+				reqs.fulfil(args[i], args[++i]);
+			else if (args[i].startsWith("-"))
+				reqs.fulfil(args[i], true);
+			else
+				err("Error: invalid argument: %s", args[i]);
 		}
-		executeInstructions();
-		writeToScreen();
-		try {
-			fileWriter = new FileWriter(args[1]);
-			writeToFile();
-			System.out.printf("Results stored in file:\n%s\n", args[1]);
-		} catch (IndexOutOfBoundsException ioob) {;}
-		scanner.close();
-		fileWriter.close();
+
+		execute(reqs);
 	}
 
-	static int execute(HashMap<String, String> options) throws IOException  {
+	static void execute(Requirements reqs) {
+		if (!reqs.fulfilled()) {
+			for (AbstractRequirement r : reqs) {
+				if (!r.fulfilled())
+					err("No value for parameter %s found.%n", r.key());
+			}
+			err("Execution terminated due to above erros.%n");
+			return;
+		}
+
 		reset();
 
-		int res = 0;
-		try {scanner = new Scanner(new File(options.get("--input")));}
-		catch (FileNotFoundException e) {;}
+		String input = (String) reqs.getValue("input");
 
-		try {fileWriter = new FileWriter(new File(options.get("--output")));}
-		catch (IOException e) {;}
-
-		if (options.get("-manual").equals("true"))
-			scanner = new Scanner(System.in);
-
-		if ((scanner == null) && options.get("-manual").equals("false")) {
-			System.out.println("Executor Error: no input stream found");
-			res = 1;
-		}
-//		if (fileWriter == null && options.get("-screen").equals("false")) {
-//			System.out.println("Executor Error: no output stream found");
-//			res = 1;
-//		}
-
-		if (res == 1) return res;
-
-		if (scanner != null)
-			read();
+		if (input.equals("stdin"))
+			loadToMemoryFromStdin();
 		else
-			manualRead();
+			loadToMemoryFromFile(new File(input));
 
-		int execRes = executeInstructions();
-		if (execRes == 1) return 1;
+		executeInstructionsFromMemory();
 
-		if (fileWriter != null)
-			writeToFile();
-		else
-			if (options.get("-d").equals("true"))
-				writeToScreen();
+		String  output = (String) reqs.getValue("output");
+		boolean screen = (boolean) reqs.getValue("screen");
 
-		return 0;
+		if (screen)
+			writeResultsToStdout();
+		if (!output.equals("#"))
+			writeResultsToFile(new File(output));
 	}
 
-
-	private static void manualRead() {
-		scanner = new Scanner(System.in);
-		int int_input = -1;
-		while (!userInput.equals("-ffff")) {
-			ok = false;
-			while (!ok) {
-				System.out.printf("%02d ? ", lineCount);
-				userInput = scanner.nextLine();
-
-				ok = true;
-				try {int_input = Integer.parseInt(userInput, 16);}
-				catch (NumberFormatException exc) {ok = false; int_input=0x10000;}
-
-				ok = (-0xffff <= int_input) && (int_input <= 0xffff);
-			}
-			memory.write(lineCount++, int_input);
-		}
-		System.out.println("*** Program loading completed\t\t ***");
-	}
-
-	static void read() {
-		while (scanner.hasNext())
-			memory.write(lineCount++, Integer.parseInt(scanner.nextLine(), 16);
-		System.out.println("*** Program loading completed\t\t ***");
-	}
-
-	static void out(String text, Object... args) {
-		System.out.printf(text, args);
-	}
-
-	static void err(String text, Object... args) {
-		System.err.printf(text, args);
-	}
-
-	static int executeInstructions() {
-		scanner = new Scanner(System.in);
+	private static void executeInstructionsFromMemory() {
 		System.out.println("*** Program execution begins\t\t ***");
 		instructionCounter = instructionRegister = operationCode = operand = accumulator = 0;
 		halt = false;
@@ -164,46 +115,103 @@ public class SML_Executor {
 
 			Command.from(operationCode, operand).execute();
 		}
-		return 0;
 	}
 
-	static void writeToFile() throws IOException {
-		String s = generateString();
-		fileWriter.write(s);
-		fileWriter.close();
-	}
-	static void writeToScreen() {
-		String s = generateString();
-		System.out.println(s);
-	}
-	private static String generateString() {
-		String s = "";
-		s += String.format("REGISTERS:\r\n");
-		s += String.format("accumulator\t\t\t%s\r\n", accumulator);
-		s += String.format("instructionCounter\t%s\r\n", instructionCounter);
-		s += String.format("instructionRegister\t%s\r\n", instructionRegister);
-		s += String.format("operationCode\t\t%s\r\n", operationCode);
-		s += String.format("operand\t\t\t\t%s\r\n", operand);
+	private static void loadToMemoryFromStdin() {
+		System.out.println("*** Please enter your program one instruction\t ***");
+		System.out.println("*** (or data word) at a time. I will display\t ***");
+		System.out.println("*** the location number and a quesiton mark (?). ***");
+		System.out.println("*** You then type the word for that location.\t ***");
+		System.out.println("*** Type -ffff to stop entering your program.\t ***");
+		System.out.println("*** Note: all numbers are interpreted as hex.\t ***");
 
-		s += String.format("\r\n\r\nMEMORY:\r\n  ");
-		s += memory.toString();
+		@SuppressWarnings("resource")
+		Scanner scanner = new Scanner(System.in);
 
-		return s;
+			boolean valid;
+			int     input     = 0;
+			String userInput = "";
+
+			while (!userInput.equals("-ffff")) {
+				valid = false;
+				while (!valid) {
+					out("%02d ? ", lineCount);
+					userInput = scanner.nextLine();
+
+					try {
+						input = Integer.parseInt(userInput, 16);
+						valid = (-0xffff <= input) && (input <= 0xffff);
+						if (!valid)
+							err("%s is out of range (-0xffff to 0xffff).%n",
+							        userInput);
+					} catch (NumberFormatException exc) {
+						valid = false;
+						err("%s is not a valid int.%n", userInput);
+					}
+				}
+				memory.write(lineCount++, input);
+			}
+			out("*** Program loading completed\t\t ***");
+	}
+
+	private static void loadToMemoryFromFile(File file) {
+		try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+			String line;
+			while ((line = reader.readLine()) != null)
+				memory.write(lineCount++, Integer.parseInt(line));
+
+			System.out.println("*** Program loading completed\t\t ***");
+		} catch (FileNotFoundException e) {
+			err("Couldn't find file %s.%n", file);
+		} catch (NumberFormatException e) {
+			err("%s", e.getMessage());
+		} catch (IOException e) {
+			err("Unexpected error while reading from file %s.%n", file);
+		}
+	}
+
+	private static void writeResultsToStdout() {
+		out(getDumpString());
+	}
+
+	private static void writeResultsToFile(File file) {
+		try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+			writer.write(getDumpString());
+		} catch (IOException e) {
+			err("Unexpected error while writing to file %s.%n", file);
+		}
+	}
+
+	static void out(String text, Object... args) {
+		System.out.printf(text, args);
+	}
+
+	static void err(String text, Object... args) {
+		System.err.printf(text, args);
+	}
+
+	private static String getDumpString() {
+		StringBuilder sb = new StringBuilder();
+		sb.append("REGISTERES:")
+		        .append("\naccumulator:            " + accumulator)
+		        .append("\ninstruction counter:    " + instructionCounter)
+		        .append("\ninstruction register:   " + instructionRegister)
+		        .append("\noperation code:         " + operationCode)
+		        .append("\noperand:                " + operand)
+		        .append(String.format("\n\n\nMEMORY:\n"))
+		        .append(memory);
+
+		return sb.toString();
 	}
 
 	private static void reset() {
 		memory.clear();
-		ok = false;
-		lineCount = 00;
-		userInput = "";
+		lineCount = 0;
 
 		accumulator = 0;
 		instructionCounter = 0;
 		instructionRegister = 0;
 		operationCode = 0;
 		operand = 0;
-
-		scanner = null;
-		fileWriter = null;
 	}
 }
