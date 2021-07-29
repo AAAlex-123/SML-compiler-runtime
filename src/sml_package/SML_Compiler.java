@@ -27,6 +27,7 @@ public class SML_Compiler {
 	private static final String INPUT    = "input";
 	private static final String LET      = "let";
 	private static final String PRINT    = "print";
+	private static final String GOTO     = "goto";
 	private static final String IFGOTO   = "ifg";
 	private static final String IF       = "if";
 	private static final String ELSE     = "else";
@@ -41,7 +42,7 @@ public class SML_Compiler {
 
 	public static final SymbolTable symbolTable = new SymbolTable();
 
-	public static final CodeWriter memory = new Memory(256);
+	private static final CodeWriter memory = new Memory(256);
 
 	private static final int[]   ifgFlags   = new int[256];
 	private static final int[][] ifFlags    = new int[256][2];
@@ -64,7 +65,7 @@ public class SML_Compiler {
 	static int            p1res;
 	static int            p2res;
 
-	private static final String[] keyWords     = new String[] { COMMENT, INPUT, IF, "goto", LET,
+	private static final String[] keyWords     = new String[] { COMMENT, INPUT, IF, GOTO, LET,
 	        PRINT, END,
 	        IFGOTO, ELSE, ENDIF, WHILE, ENDWHILE, NOOP, DUMP,
 	        "+", "-", "*", "/", "^", "%", "=",
@@ -198,7 +199,7 @@ public class SML_Compiler {
 									succ = false;
 								} else {
 									if (command.matches(INT)) {
-										int location = memory.assignPlaceForVariable();
+										int location = addVariable();
 										symbolTable.addEntry(variable, VARIABLE, location, command);
 									}
 									// future: add other types
@@ -230,9 +231,9 @@ public class SML_Compiler {
 					// declare constants
 					if (isNumber(token)) {
 						if (!symbolTable.existsSymbol(token, CONSTANT)) {
-							int location = memory.assignPlaceForVariable();
+							int location = addVariable();
 							symbolTable.addEntry(token, CONSTANT, location, "int");
-							memory.writeConstant(Integer.parseInt(token));
+							addConstant(Integer.parseInt(token));
 							// future: get type and add with its type
 						}
 					// assert variable is declared
@@ -261,7 +262,7 @@ public class SML_Compiler {
 
 			// actually write machine code for each command
 			if (command.equals(DUMP)) {
-				memory.writeInstruction(SML_Executor.DUMP * 0x100);
+				addInstruction(Command.DUMP.opcode());
 
 			} else if (command.equals(NOOP)) {
 
@@ -275,7 +276,7 @@ public class SML_Compiler {
 						succ = false;
 					} else if (isVariable(var)) {
 						int loc = symbolTable.getSymbolLocation(var, VARIABLE);
-						memory.writeInstruction((SML_Executor.READ_INT * 0x100) + loc);
+						addInstruction(Command.READ_INT.opcode() + loc);
 
 					} else {
 						;
@@ -293,7 +294,7 @@ public class SML_Compiler {
 					String infix = line.split("=")[1];
 					PostfixEvaluator.evaluatePostfix(InfixToPostfix.convertToPostfix(infix));
 
-					memory.writeInstruction((SML_Executor.STORE * 0x100) + loc);
+					addInstruction(Command.STORE.opcode() + loc);
 				} else {
 					;
 				}
@@ -307,7 +308,7 @@ public class SML_Compiler {
 
 						// future: print according to type
 						if (varType.equals("int")) {
-							memory.writeInstruction((SML_Executor.WRITE_NL * 0x100) + loc);
+							addInstruction(Command.WRITE_NL.opcode() + loc);
 						} else {
 							System.out.printf("%s:%02d:\t error: variable %s has unknown type %s\n", inputFileName, line_count, var, varType);
 							succ = false;
@@ -317,10 +318,10 @@ public class SML_Compiler {
 					}
 				}
 
-			} else if (command.equals("goto")) {
+			} else if (command.equals(GOTO)) {
 				int target_line = Integer.parseInt(tokens[2]);
 
-				int location = memory.writeInstruction(SML_Executor.BRANCH * 0x100);
+				int location = addInstruction(Command.BRANCH.opcode());
 				ifgFlags[location] = target_line;
 
 			} else if (command.equals(IFGOTO)) {
@@ -335,40 +336,40 @@ public class SML_Compiler {
 
 				String condition = tokens[3];
 				if (condition.equals("<")) {
-					memory.writeInstruction((SML_Executor.LOAD * 0x100) + loc1);
-					memory.writeInstruction((SML_Executor.SUBTRACT * 0x100) + loc2);
-					int location = memory.writeInstruction(SML_Executor.BRANCHNEG * 0x100);
+					addInstruction(Command.LOAD.opcode() + loc1);
+					addInstruction(Command.SUBTRACT.opcode() + loc2);
+					int location = addInstruction(Command.BRANCHNEG.opcode());
 					ifgFlags[location] = target_line;
 				} else if (condition.equals(">")) {
-					memory.writeInstruction((SML_Executor.LOAD * 0x100) + loc2);
-					memory.writeInstruction((SML_Executor.SUBTRACT * 0x100) + loc1);
-					int location = memory.writeInstruction(SML_Executor.BRANCHNEG * 0x100);
+					addInstruction(Command.LOAD.opcode() + loc2);
+					addInstruction(Command.SUBTRACT.opcode() + loc1);
+					int location = addInstruction(Command.BRANCHNEG.opcode());
 					ifgFlags[location] = target_line;
 				} else if (condition.equals("<=")) {
-					memory.writeInstruction((SML_Executor.LOAD * 0x100) + loc1);
-					memory.writeInstruction((SML_Executor.SUBTRACT * 0x100) + loc2);
-					int location = memory.writeInstruction(SML_Executor.BRANCHNEG * 0x100);
+					addInstruction(Command.LOAD.opcode() + loc1);
+					addInstruction(Command.SUBTRACT.opcode() + loc2);
+					int location = addInstruction(Command.BRANCHNEG.opcode());
 					ifgFlags[location] = target_line;
-					location = memory.writeInstruction(SML_Executor.BRANCHZERO * 0x100);
+					location = addInstruction(Command.BRANCHZERO.opcode());
 					ifgFlags[location] = target_line;
 				} else if (condition.equals(">=")) {
-					memory.writeInstruction((SML_Executor.LOAD * 0x100) + loc2);
-					memory.writeInstruction((SML_Executor.SUBTRACT * 0x100) + loc1);
-					int location = memory.writeInstruction(SML_Executor.BRANCHNEG * 0x100);
+					addInstruction(Command.LOAD.opcode() + loc2);
+					addInstruction(Command.SUBTRACT.opcode() + loc1);
+					int location = addInstruction(Command.BRANCHNEG.opcode());
 					ifgFlags[location] = target_line;
-					location = memory.writeInstruction(SML_Executor.BRANCHZERO * 0x100);
+					location = addInstruction(Command.BRANCHZERO.opcode());
 					ifgFlags[location] = target_line;
 				}else if(condition.equals("==")) {
-					 memory.writeInstruction((SML_Executor.LOAD*0x100)+loc1);
-					 memory.writeInstruction((SML_Executor.SUBTRACT*0x100)+loc2);
-					 int location = memory.writeInstruction(SML_Executor.BRANCHZERO*0x100);
+					addInstruction(Command.LOAD.opcode() + loc1);
+					addInstruction(Command.SUBTRACT.opcode() + loc2);
+					int location = addInstruction(Command.BRANCHZERO.opcode());
 					ifgFlags[location] = target_line;
 				} else if(condition.equals("!=")) {
-					memory.writeInstruction((SML_Executor.LOAD*0x100)+loc1);
-					memory.writeInstruction((SML_Executor.SUBTRACT*0x100)+loc2);
-					int location = memory.writeInstruction(SML_Executor.BRANCHZERO * 0x100);
+					addInstruction(Command.LOAD.opcode() + loc1);
+					addInstruction(Command.SUBTRACT.opcode() + loc2);
+					int location = addInstruction(Command.BRANCHZERO.opcode());
 					ifgFlags[location] = -line_count;
-					location = memory.writeInstruction(SML_Executor.BRANCH * 0x100);
+					location = addInstruction(Command.BRANCH.opcode());
 					ifgFlags[location] = target_line;
 				} else {
 					System.out.println("Error: invalid if condition");
@@ -384,46 +385,46 @@ public class SML_Compiler {
 				loc2 = symbolTable.getSymbolLocation(op2, CONSTANT, VARIABLE);
 				String condition = tokens[3];
 				if (condition.equals("<")) {
-					memory.writeInstruction((SML_Executor.LOAD * 0x100) + loc2);
-					memory.writeInstruction((SML_Executor.SUBTRACT * 0x100) + loc1);
-					int location = memory.writeInstruction(SML_Executor.BRANCHZERO * 0x100);
+					addInstruction(Command.LOAD.opcode() + loc2);
+					addInstruction(Command.SUBTRACT.opcode() + loc1);
+					int location = addInstruction(Command.BRANCHZERO.opcode());
 					ifFlags[line_count][0] = location;
-					location = memory.writeInstruction(SML_Executor.BRANCHNEG * 0x100);
+					location = addInstruction(Command.BRANCHNEG.opcode());
 					ifFlags[line_count][1] = location;
 				} else if (condition.equals(">")) {
-					memory.writeInstruction((SML_Executor.LOAD * 0x100) + loc1);
-					memory.writeInstruction((SML_Executor.SUBTRACT * 0x100) + loc2);
-					int location = memory.writeInstruction(SML_Executor.BRANCHZERO * 0x100);
+					addInstruction(Command.LOAD.opcode() + loc1);
+					addInstruction(Command.SUBTRACT.opcode() + loc2);
+					int location = addInstruction(Command.BRANCHZERO.opcode());
 					ifFlags[line_count][0] = location;
-					location = memory.writeInstruction(SML_Executor.BRANCHNEG * 0x100);
+					location = addInstruction(Command.BRANCHNEG.opcode());
 					ifFlags[line_count][1] = location;
 				} else if (condition.equals("<=")) {
-					memory.writeInstruction((SML_Executor.LOAD * 0x100) + loc2);
-					memory.writeInstruction((SML_Executor.SUBTRACT * 0x100) + loc1);
-					int location = memory.writeInstruction(SML_Executor.BRANCHNEG * 0x100);
+					addInstruction(Command.LOAD.opcode() + loc2);
+					addInstruction(Command.SUBTRACT.opcode() + loc1);
+					int location = addInstruction(Command.BRANCHNEG.opcode());
 					ifFlags[line_count][0] = location;
 				} else if (condition.equals(">=")) {
-					memory.writeInstruction((SML_Executor.LOAD * 0x100) + loc1);
-					memory.writeInstruction((SML_Executor.SUBTRACT * 0x100) + loc2);
-					int location = memory.writeInstruction(SML_Executor.BRANCHNEG * 0x100);
+					addInstruction(Command.LOAD.opcode() + loc1);
+					addInstruction(Command.SUBTRACT.opcode() + loc2);
+					int location = addInstruction(Command.BRANCHNEG.opcode());
 					ifFlags[line_count][0] = location;
 				} else if (condition.equals("==")) {
-					memory.writeInstruction((SML_Executor.LOAD * 0x100) + loc1);
-					int location1 = memory.writeInstruction((SML_Executor.SUBTRACT * 0x100) + loc2);
-					memory.writeInstruction((SML_Executor.BRANCHZERO * 0x100) + location1 + 1);
-					int location = memory.writeInstruction(SML_Executor.BRANCH * 0x100);
+					addInstruction(Command.LOAD.opcode() + loc1);
+					int location1 = addInstruction(Command.SUBTRACT.opcode() + loc2);
+					addInstruction(Command.BRANCHZERO.opcode() + location1 + 1);
+					int location = addInstruction(Command.BRANCH.opcode());
 					ifFlags[line_count][1] = location;
 				} else if (condition.equals("!=")) {
-					memory.writeInstruction((SML_Executor.LOAD * 0x100) + loc1);
-					memory.writeInstruction((SML_Executor.SUBTRACT * 0x100) + loc2);
-					int location = memory.writeInstruction(SML_Executor.BRANCHZERO * 0x100);
+					addInstruction(Command.LOAD.opcode() + loc1);
+					addInstruction(Command.SUBTRACT.opcode() + loc2);
+					int location = addInstruction(Command.BRANCHZERO.opcode());
 					ifFlags[line_count][0] = location;
 				} else {
 					System.out.println("Error: invalid if condition");
 				}
 
 			} else if (command.equals(ELSE)) {
-				int location = memory.writeInstruction(SML_Executor.BRANCH * 0x100);
+				int location = addInstruction(Command.BRANCH.opcode());
 				ifFlags[line_count][0] = location;
 
 				String target_line = tokens[2];
@@ -457,49 +458,47 @@ public class SML_Compiler {
 				loc2 = symbolTable.getSymbolLocation(op2, CONSTANT, VARIABLE);
 				String condition = tokens[3];
 				if (condition.equals("<")) {
-					memory.writeInstruction((SML_Executor.LOAD * 0x100) + loc2);
-					memory.writeInstruction((SML_Executor.SUBTRACT * 0x100) + loc1);
-					int location = memory.writeInstruction(SML_Executor.BRANCHZERO * 0x100);
+					addInstruction(Command.LOAD.opcode() + loc2);
+					addInstruction(Command.SUBTRACT.opcode() + loc1);
+					int location = addInstruction(Command.BRANCHZERO.opcode());
 					whileFlags[line_count][0] = location;
-					location = memory.writeInstruction(SML_Executor.BRANCHNEG * 0x100);
+					location = addInstruction(Command.BRANCHNEG.opcode());
 					whileFlags[line_count][1] = location;
 				} else if (condition.equals(">")) {
-					memory.writeInstruction((SML_Executor.LOAD * 0x100) + loc1);
-					memory.writeInstruction((SML_Executor.SUBTRACT * 0x100) + loc2);
-					int location = memory.writeInstruction(SML_Executor.BRANCHZERO * 0x100);
+					addInstruction(Command.LOAD.opcode() + loc1);
+					addInstruction(Command.SUBTRACT.opcode() + loc2);
+					int location = addInstruction(Command.BRANCHZERO.opcode());
 					whileFlags[line_count][0] = location;
-					location = memory.writeInstruction(SML_Executor.BRANCHNEG * 0x100);
+					location = addInstruction(Command.BRANCHNEG.opcode());
 					whileFlags[line_count][1] = location;
 				} else if (condition.equals("<=")) {
-					memory.writeInstruction((SML_Executor.LOAD * 0x100) + loc2);
-					memory.writeInstruction((SML_Executor.SUBTRACT * 0x100) + loc1);
-					int location = memory.writeInstruction(SML_Executor.BRANCHNEG * 0x100);
+					addInstruction(Command.LOAD.opcode() + loc2);
+					addInstruction(Command.SUBTRACT.opcode() + loc1);
+					int location = addInstruction(Command.BRANCHNEG.opcode());
 					whileFlags[line_count][0] = location;
 				} else if (condition.equals(">=")) {
-					memory.writeInstruction((SML_Executor.LOAD * 0x100) + loc1);
-					memory.writeInstruction((SML_Executor.SUBTRACT * 0x100) + loc2);
-					int location = memory.writeInstruction(SML_Executor.BRANCHNEG * 0x100);
+					addInstruction(Command.LOAD.opcode() + loc1);
+					addInstruction(Command.SUBTRACT.opcode() + loc2);
+					int location = addInstruction(Command.BRANCHNEG.opcode());
 					whileFlags[line_count][0] = location;
 				} else if (condition.equals("==")) {
-					memory.writeInstruction((SML_Executor.LOAD * 0x100) + loc1);
-					int location1 = memory.writeInstruction((SML_Executor.SUBTRACT * 0x100) + loc2);
-					int location  = memory
-					        .writeInstruction((SML_Executor.BRANCHZERO * 0x100) + location1 + 1);
+					addInstruction(Command.LOAD.opcode() + loc1);
+					int location1 = addInstruction(Command.SUBTRACT.opcode() + loc2);
+					int location  = addInstruction(Command.BRANCHZERO.opcode() + location1 + 1);
 					whileFlags[line_count][0] = location;
-					location = memory.writeInstruction(SML_Executor.BRANCH * 0x100);
+					location = addInstruction(Command.BRANCH.opcode());
 					whileFlags[line_count][1] = location;
 				} else if (condition.equals("!=")) {
-					memory.writeInstruction((SML_Executor.LOAD * 0x100) + loc1);
-					memory.writeInstruction((SML_Executor.SUBTRACT * 0x100) + loc2);
-					int location = memory.writeInstruction(SML_Executor.BRANCHZERO * 0x100);
+					addInstruction(Command.LOAD.opcode() + loc1);
+					addInstruction(Command.SUBTRACT.opcode() + loc2);
+					int location = addInstruction(Command.BRANCHZERO.opcode());
 					whileFlags[line_count][0] = location;
 				} else {
 					System.out.println("Error: invalid if condition");
 				}
 			} else if (command.equals(ENDWHILE)) {
 				int location = symbolTable.getSymbolLocation(tokens[2], LINE);
-				memory.writeInstruction((SML_Executor.BRANCH * 0x100) + location);
-
+				addInstruction(Command.BRANCH.opcode() + location);
 
 				String target_line = tokens[2];
 				for (int i=0; i<whileFlags[0].length; i++) {
@@ -514,7 +513,7 @@ public class SML_Compiler {
 				}
 
 			} else if (command.equals(END)) {
-				memory.writeInstruction(SML_Executor.HALT * 0x100);
+				addInstruction(Command.HALT.opcode());
 			} else {
 				if (!Arrays.asList(constructors).contains(command))
 					System.out.printf("CompilationError: Unknown command %s", command);
@@ -592,6 +591,18 @@ public class SML_Compiler {
 		line = "";
 		tokens = null;
 		resetMap();
+	}
+
+	public static int addInstruction(int instruction) {
+		return memory.writeInstruction(instruction);
+	}
+
+	public static int addConstant(int value) {
+		return memory.writeConstant(value);
+	}
+
+	public static int addVariable() {
+		return memory.assignPlaceForVariable();
 	}
 
 	private static boolean isVariable(String var) {
