@@ -9,8 +9,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Stack;
 
+import sml_package.Command;
 import sml_package.SML_Compiler;
-import sml_package.SML_Executor;
 import symboltable.UnknownSymbolException;
 
 public class PostfixEvaluator {
@@ -31,25 +31,25 @@ public class PostfixEvaluator {
 			String c = token.value;
 
 			if (isConstant(c)) {
-				int loc;
+				int location;
 				try {
-					loc = SML_Compiler.symbolTable.getSymbolLocation(c, CONSTANT);
+					location = SML_Compiler.symbolTable.getSymbolLocation(c, CONSTANT);
 				} catch (UnknownSymbolException e) {
-					loc = SML_Compiler.memory.writeConstant(Integer.parseInt(c));
-					SML_Compiler.symbolTable.addEntry(c, CONSTANT, loc, "");
+					location = SML_Compiler.addConstant(Integer.parseInt(c));
+					SML_Compiler.symbolTable.addEntry(c, CONSTANT, location, "");
 				}
-				stack.push(loc);
+				stack.push(location);
 			} else if (isVariable(c)) {
-				int loc;
+				int location;
 				try {
-					loc = SML_Compiler.symbolTable.getSymbolLocation(c, VARIABLE);
+					location = SML_Compiler.symbolTable.getSymbolLocation(c, VARIABLE);
 				} catch (UnknownSymbolException e) {
 					System.out.printf("%s:%02d: error: variable %s not found\n",
 					        SML_Compiler.inputFileName, SML_Compiler.line_count, c);
 					SML_Compiler.succ = false;
 					return;
 				}
-				stack.push(loc);
+				stack.push(location);
 
 			} else if (isOperator(c)) {
 				int y = stack.pop();
@@ -58,31 +58,30 @@ public class PostfixEvaluator {
 				int instruction;
 
 				if (c.equals("+"))
-					instruction = SML_Executor.ADD;
+					instruction = Command.ADD.opcode();
 				else if (c.equals("-"))
-					instruction = SML_Executor.SUBTRACT;
+					instruction = Command.SUBTRACT.opcode();
 				else if (c.equals("*"))
-					instruction = SML_Executor.MULTIPLY;
+					instruction = Command.MULTIPLY.opcode();
 				else if (c.equals("/"))
-					instruction = SML_Executor.DIVIDE;
+					instruction = Command.DIVIDE.opcode();
 				else if (c.equals("%"))
-					instruction = SML_Executor.MOD;
+					instruction = Command.MOD.opcode();
 				else if (c.equals("^"))
-					instruction = SML_Executor.POW;
+					instruction = Command.POW.opcode();
 				else
 					instruction = -1;
 
-				int tempResultLocation = SML_Compiler.memory.assignPlaceForVariable();
+				int tempResultLocation = SML_Compiler.addVariable();
 
-				SML_Compiler.memory.writeInstruction((SML_Executor.LOAD * 0x100) + x);
-				SML_Compiler.memory.writeInstruction((instruction * 0x100) + y);
-				SML_Compiler.memory
-				        .writeInstruction((SML_Executor.STORE * 0x100) + tempResultLocation);
+				SML_Compiler.addInstruction(Command.LOAD.opcode() + x);
+				SML_Compiler.addInstruction(instruction + y);
+				SML_Compiler.addInstruction(Command.STORE.opcode() + tempResultLocation);
 
 				stack.push(tempResultLocation);
 			}
 		}
-		SML_Compiler.memory.writeInstruction((SML_Executor.LOAD * 0x100) + stack.pop());
+		SML_Compiler.addInstruction(Command.LOAD.opcode() + stack.pop());
 	}
 
 	private static boolean isConstant(String con) {
