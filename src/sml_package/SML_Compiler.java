@@ -4,20 +4,26 @@ import static symboltable.SymbolType.CONSTANT;
 import static symboltable.SymbolType.LINE;
 import static symboltable.SymbolType.VARIABLE;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
+import java.util.StringTokenizer;
 
 import memory.CodeWriter;
 import memory.Memory;
 import postfix.InfixToPostfix;
 import postfix.PostfixEvaluator;
+import requirement.requirements.AbstractRequirement;
 import requirement.requirements.Requirements;
+import requirement.requirements.StringType;
 import symboltable.SymbolTable;
 import symboltable.UnknownSymbolException;
 
@@ -44,26 +50,18 @@ public class SML_Compiler {
 
 	private static final CodeWriter memory = new Memory(256);
 
+	private static final StringBuilder program = new StringBuilder();
+
 	private static final int[]   ifgFlags   = new int[256];
 	private static final int[][] ifFlags    = new int[256][2];
 	private static final int[][] whileFlags = new int[256][2];
 
-	private static String   originalLine;
-	private static String   line = "";
-	private static String[] tokens;
-
 	public static int     line_count;
 	private static String command;
 
-	private static Scanner    scanner;
-	private static FileWriter fileWriter;
-
 	public static String inputFileName;
-	static String        outputFileName;
 
 	public static boolean succ;
-	static int            p1res;
-	static int            p2res;
 
 	private static final String[] keyWords     = new String[] { COMMENT, INPUT, IF, GOTO, LET,
 	        PRINT, END,
@@ -76,85 +74,92 @@ public class SML_Compiler {
 	        'u', 'v', 'w', 'x', 'y', 'z', '_' };
 	private static final String[] constructors = new String[] { INT };
 
-	public static void main(String[] args) throws FileNotFoundException {
+	public static void main(String[] args) {
 
-		System.out.println("hmmm a main mehtod that doesn't do anything...");
-		reset();
-		inputFileName = "C:\\Users\\JIM\\Desktop\\java stuff\\SML\\Simple.txt";
-		scanner = new Scanner(new File("C:\\Users\\JIM\\Desktop\\java stuff\\SML\\Simple.txt"));
-		pass1();
-		pass2();
-		if (succ)
-			writeToScreen();
-		else
-			System.out.println("Due to above errors compilation failed :(");
+		Requirements reqs = getRequirements();
+
+		for (int i = 0; i < args.length; ++i) {
+			if (args[i].startsWith("--"))
+				reqs.fulfil(args[i], args[++i]);
+			else if (args[i].startsWith("-"))
+				reqs.fulfil(args[i], true);
+			else
+				System.err.printf("Error: invalid argument: %s", args[i]);
+		}
+
+		compile(reqs);
 	}
 
 	public static Requirements getRequirements() {
 		Requirements reqs = new Requirements();
 
+		reqs.add("input", StringType.ANY);
+		reqs.add("output", StringType.ANY);
+		reqs.add("screen");
+		reqs.add("st");
+
+		reqs.fulfil("input", "stdin");
+		reqs.fulfil("output", "out.sml");
+		reqs.fulfil("screen", false);
+		reqs.fulfil("st", false);
 
 		return reqs;
 	}
 
-	static int compile(HashMap<String, String> options) throws IOException {
+	static void compile(Requirements reqs) {
+		if (!reqs.fulfilled()) {
+			for (AbstractRequirement r : reqs) {
+				if (!r.fulfilled())
+					System.err.printf("No value for parameter %s found.%n", r.key());
+			}
+			System.err.printf("Execution terminated due to above erros.%n");
+			return;
+		}
+
 		reset();
 
-		int res = 0;
-		try {
-			scanner = new Scanner(new File(options.get("--input")));
-			inputFileName = options.get("--input");
-		} catch (FileNotFoundException e) {
-			inputFileName = "stdin";
-		}
+		String input = (String) reqs.getValue("input");
 
-		try {
-			fileWriter = new FileWriter(new File(options.get("--output")));
-			outputFileName = options.get("--output");
-		} catch (IOException e) {
-			outputFileName = "stdout";
-		}
+		if (input.equals("stdin"))
+			loadProgramFromStdin();
+		else
+			loadProgramFromFile(new File(input));
 
-		if (options.get("-manual").equals("true"))
-			scanner = new Scanner(System.in);
+		pass1();
+		pass2();
 
-		if ((scanner == null) && options.get("-manual").equals("false")) {
-			System.out.println("Compiler Error: no input stream found");
-			res = 1;
-		}
-		if ((fileWriter == null) && options.get("-screen").equals("false")) {
-			System.out.println("Compiler Error: no output stream found");
-			res = 1;
-		}
+		String  output = (String) reqs.getValue("output");
+		boolean screen = (boolean) reqs.getValue("screen");
+		boolean st     = (boolean) reqs.getValue("st");
 
-		if (res == 1)
-			return res;
-
-		p1res = pass1();
-		p2res = pass2();
 		if (succ) {
-			if (fileWriter != null)
-				writeToFile();
-			if (options.get("-screen").equals("true"))
-				writeToScreen();
+			if (screen || output.equals("stdout"))
+				writeResultsToStdout();
+			if (!output.equals("stdout"))
+				writeResultsToFile(new File(output));
 		} else {
 			System.out.println("Due to above errors compilation failed :(");
 		}
-		if (options.get("-st").equals("true"))
-			System.out.println(symbolTable);
 
-		return (p1res + p2res) > 0 ? 1 : 0;
+		if (st)
+			System.out.println(symbolTable);
 	}
 
 	private static int pass1() {
 
 		System.out.println("*** Starting compilation\t\t\t ***");
 
+		StringTokenizer tok = new StringTokenizer(program.toString(), "\n");
+
+		String   originalLine;
+		String   line = "";
+		String[] tokens;
+
 		while (!line.equals("99 end")) {
 
 			// get line and remove extra whitespace
 			try {
-				originalLine = scanner.nextLine().strip().replace("\s+", " ");
+				originalLine = tok.nextToken().strip().replace("\s+", " ");
 			} catch (NoSuchElementException e) {
 				System.err.printf("error at: %s:\t\t EOF reached; no '99 end' command found\n", inputFileName);
 				return 1;
@@ -195,7 +200,8 @@ public class SML_Compiler {
 								if (isDeclared) {
 									System.err.printf(
 									        "error at: %s:%02d:%02d: variable '%s' already declared\n",
-									        inputFileName, line_count, find(variable), variable);
+									        inputFileName, line_count, find(originalLine, variable),
+									        variable);
 									succ = false;
 								} else {
 									if (command.matches(INT)) {
@@ -205,13 +211,22 @@ public class SML_Compiler {
 									// future: add other types
 								}
 							} else if (isNumber(variable)) {
-								System.err.printf("error at: %s:%02d:%02d: can't declare constant '%s' as variable\n", inputFileName, line_count, find(variable), variable);
+								System.err.printf(
+								        "error at: %s:%02d:%02d: can't declare constant '%s' as variable\n",
+								        inputFileName, line_count, find(originalLine, variable),
+								        variable);
 								succ = false;
 							} else if (Arrays.asList(keyWords).contains(variable)) {
-								System.err.printf("error at: %s:%02d:%02d: variable name '%s' is reserved\n", inputFileName, line_count, find(variable), variable);
+								System.err.printf(
+								        "error at: %s:%02d:%02d: variable name '%s' is reserved\n",
+								        inputFileName, line_count, find(originalLine, variable),
+								        variable);
 								succ = false;
 							} else if (!isValidName(variable)) {
-								System.err.printf("error at: %s:%02d:%02d: variable '%s' has invalid name\n", inputFileName, line_count, find(variable), variable);
+								System.err.printf(
+								        "error at: %s:%02d:%02d: variable '%s' has invalid name\n",
+								        inputFileName, line_count, find(originalLine, variable),
+								        variable);
 								succ = false;
 							} else {
 								System.err.printf("%s:%02d:\t error: hmmm there is an error here... (pls let me know)\n", inputFileName, line_count, variable);
@@ -239,13 +254,17 @@ public class SML_Compiler {
 					// assert variable is declared
 					} else if (isVariable(token)){
 						if (!symbolTable.existsSymbol(token, VARIABLE)) {
-							System.err.printf("error at: %s:%02d:%02d: variable '%s' not declared\n", inputFileName, line_count, find(token), token);
+							System.err.printf(
+							        "error at: %s:%02d:%02d: variable '%s' not declared\n",
+							        inputFileName, line_count, find(originalLine, token), token);
 							succ = false;
 						}
 					} else if (Arrays.asList(keyWords).contains(token)) {
 						;
 					} else if (!isValidName(token)) {
-						System.err.printf("error at: %s:%02d:%02d: variable '%s' has invalid name\n", inputFileName, line_count, find(token), token);
+						System.err.printf(
+						        "error at: %s:%02d:%02d: variable '%s' has invalid name\n",
+						        inputFileName, line_count, find(originalLine, token), token);
 						succ = false;
 					} else {
 						System.err.printf("%s:%02d:\t error: hmmm there is an error here... (pls let me know)\n", inputFileName, line_count, token);
@@ -256,7 +275,9 @@ public class SML_Compiler {
 
 			// check for excessive stuff
 			if (tokens.length > lengths.get(command)) {
-				System.err.printf("error at: %s:%02d:%02d: unexpected stuff '%s'\n", inputFileName, line_count, find(tokens[lengths.get(command)]), originalLine.substring(find(tokens[lengths.get(command)])));
+				System.err.printf("error at: %s:%02d:%02d: unexpected stuff '%s'\n", inputFileName,
+				        line_count, find(originalLine, tokens[lengths.get(command)]),
+				        originalLine.substring(find(originalLine, tokens[lengths.get(command)])));
 				succ = false;
 			}
 
@@ -272,7 +293,8 @@ public class SML_Compiler {
 				String[] vars = line.substring(9).split(" ");
 				for (String var : vars) {
 					if (isNumber(var)) {
-						System.err.printf("error at: %s:%02d:%02d: can't input to constant '%s'\n", inputFileName, line_count, find(var), var);
+						System.err.printf("error at: %s:%02d:%02d: can't input to constant '%s'\n",
+						        inputFileName, line_count, find(originalLine, var), var);
 						succ = false;
 					} else if (isVariable(var)) {
 						int loc = symbolTable.getSymbolLocation(var, VARIABLE);
@@ -286,7 +308,8 @@ public class SML_Compiler {
 			} else if (command.equals(LET)) {
 				String var = tokens[2];
 				if (isNumber(var)) {
-					System.err.printf("error at: %s:%02d:%02d: can't assign to constant '%s'\n", inputFileName, line_count, find(var), var);
+					System.err.printf("error at: %s:%02d:%02d: can't assign to constant '%s'\n",
+					        inputFileName, line_count, find(originalLine, var), var);
 					succ = false;
 				} else if (isVariable(var)){
 					int loc = symbolTable.getSymbolLocation(var, VARIABLE);
@@ -544,14 +567,43 @@ public class SML_Compiler {
 		return 0;
 	}
 
-	private static void writeToFile() throws IOException {
-		fileWriter.write(memory.list());
-		fileWriter.close();
-		System.out.println("*** SML instructions written to file ***");
+	private static void loadProgramFromStdin() {
+
+		@SuppressWarnings("resource")
+		Scanner scanner = new Scanner(System.in);
+		program.setLength(0);
+
+		String userInput = "";
+		int    lineCount = 0;
+
+		while (!userInput.equals("99 end")) {
+			System.out.printf("%02d > ", lineCount);
+			userInput = scanner.nextLine();
+
+			program.append(userInput);
+			++lineCount;
+		}
+		System.out.printf("program loading done%n");
+
 	}
 
-	private static void writeToScreen() {
-		System.out.println("\nSML code:");
+	private static void loadProgramFromFile(File file) {
+		try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+			program.setLength(0);
+			String line      = reader.readLine();
+			while (line != null) {
+				program.append(line).append(System.lineSeparator());
+				line = reader.readLine();
+			}
+			System.out.println("*** Program loading completed\t\t ***");
+		} catch (FileNotFoundException e) {
+			System.err.printf("Couldn't find file %s.%n", file);
+		} catch (IOException e) {
+			System.err.printf("Unexpected System.err.printfor while reading from file %s.%n", file);
+		}
+	}
+
+	private static void writeResultsToStdout() {
 		boolean zeros = false;
 		for (int i = 0, size = memory.size(); i < size; i++) {
 
@@ -569,10 +621,17 @@ public class SML_Compiler {
 		}
 	}
 
+	private static void writeResultsToFile(File file) {
+		try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+			writer.write(memory.list());
+		} catch (IOException e) {
+			System.err.printf("Unexpected error while writing to file %s.%n", file);
+		}
+	}
+
 	private static void reset() {
 		memory.clear();
-		for (int i = 0; i < ifgFlags.length; i++)
-			ifgFlags[i] = -1;
+		Arrays.fill(ifgFlags, -1);
 		for (int i = 0; i < ifFlags.length; i++)
 			for (int j = 0; j < ifFlags[0].length; j++)
 				ifFlags[i][j] = -1;
@@ -582,14 +641,9 @@ public class SML_Compiler {
 
 		symbolTable.clear();
 
-		scanner = null;
-		fileWriter = null;
-
-		inputFileName = outputFileName = "";
+		inputFileName = "";
 		succ = true;
 
-		line = "";
-		tokens = null;
 		resetMap();
 	}
 
@@ -643,8 +697,8 @@ public class SML_Compiler {
 		return false;
 	}
 
-	private static int find(String s) {
-		return originalLine.indexOf(s, 2);
+	private static int find(String line, String s) {
+		return line.indexOf(s, 2);
 	}
 
 	private static void resetMap() {
