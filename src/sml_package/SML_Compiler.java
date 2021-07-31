@@ -6,6 +6,16 @@ import static postfix.Token.MOD;
 import static postfix.Token.MUL;
 import static postfix.Token.POW;
 import static postfix.Token.SUB;
+import static sml_package.Condition.EQ;
+import static sml_package.Condition.GE;
+import static sml_package.Condition.GT;
+import static sml_package.Condition.LE;
+import static sml_package.Condition.LT;
+import static sml_package.Condition.NE;
+import static sml_package.Statement.COMMENT;
+import static sml_package.Statement.INPUT;
+import static sml_package.Statement.INT;
+import static sml_package.Statement.LET;
 import static symboltable.SymbolType.CONSTANT;
 import static symboltable.SymbolType.LINE;
 import static symboltable.SymbolType.VARIABLE;
@@ -19,7 +29,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
@@ -27,32 +36,19 @@ import java.util.StringTokenizer;
 
 import memory.CodeWriter;
 import memory.Memory;
-import postfix.InfixToPostfix;
-import postfix.PostfixEvaluator;
 import requirement.requirements.AbstractRequirement;
 import requirement.requirements.Requirements;
 import requirement.requirements.StringType;
+import sml_package.exceptions.InvalidVariableNameException;
+import sml_package.exceptions.NotALineException;
+import sml_package.exceptions.NotAVariableException;
+import sml_package.exceptions.UnexpectedTokensException;
+import sml_package.exceptions.VariableAlreadyDeclaredException;
+import sml_package.exceptions.VariableNotDeclaredException;
 import symboltable.SymbolTable;
 import symboltable.UnknownSymbolException;
 
 public class SML_Compiler {
-	private static final String COMMENT  = "//";
-	private static final String INT      = "int";
-	private static final String INPUT    = "input";
-	private static final String LET      = "let";
-	private static final String PRINT    = "print";
-	private static final String GOTO     = "goto";
-	private static final String IFGOTO   = "ifg";
-	private static final String IF       = "if";
-	private static final String ELSE     = "else";
-	private static final String ENDIF    = "endif";
-	private static final String WHILE    = "while";
-	private static final String ENDWHILE = "endwhile";
-	private static final String END      = "end";
-	private static final String NOOP     = "noop";
-	private static final String DUMP     = "dump";
-
-	private static final HashMap<String, Integer> lengths = new HashMap<>();
 
 	public static final SymbolTable symbolTable = new SymbolTable();
 
@@ -60,23 +56,26 @@ public class SML_Compiler {
 
 	private static final StringBuilder program = new StringBuilder();
 
-	private static final int[]   ifgFlags   = new int[256];
-	private static final int[][] ifFlags    = new int[256][2];
-	private static final int[][] whileFlags = new int[256][2];
-
-	public static int     line_count;
-	private static String command;
+	public static final int[]   ifgFlags   = new int[256];
+	public static final int[][] ifFlags    = new int[256][2];
+	public static final int[][] whileFlags = new int[256][2];
 
 	public static String inputFileName;
+	public static int    line_count;
+	public static String originalLine;
+	public static String variable;
 
-	public static boolean succ;
+	public static boolean success;
 
-	private static final Collection<String> keywords     = new HashSet<>(
-	        Arrays.asList(COMMENT, INPUT, IF, GOTO, LET, PRINT, END, IFGOTO, ELSE, ENDIF, WHILE,
-	                ENDWHILE, NOOP, DUMP, ADD.value, SUB.value, MUL.value, DIV.value, POW.value,
-	                MOD.value, "=", "==", "<=", ">=", "!=", "<", ">"));
+	private static final Collection<String> keywords = new HashSet<>();
 
-	private static final Collection<String> constructors = new HashSet<>(Arrays.asList(INT));
+	static {
+		keywords.addAll(Arrays.asList(ADD.value, SUB.value, MUL.value, DIV.value, POW.value,
+		        MOD.value, "=", LT.value, GT.value, LE.value, GE.value, EQ.value, NE.value));
+		for (Statement s : Statement.values()) {
+			keywords.add(s.identifier);
+		}
+	}
 
 	public static void main(String[] args) {
 
@@ -136,7 +135,7 @@ public class SML_Compiler {
 		boolean screen = (boolean) reqs.getValue("screen");
 		boolean st     = (boolean) reqs.getValue("st");
 
-		if (succ) {
+		if (success) {
 			if (screen || output.equals("stdout"))
 				writeResultsToStdout();
 			if (!output.equals("stdout"))
@@ -149,142 +148,107 @@ public class SML_Compiler {
 			System.out.println(symbolTable);
 	}
 
-	private static int pass1() {
+	private static void pass1() {
 
 		memory.initializeForWriting();
 
 		System.out.println("*** Starting compilation\t\t\t ***");
 
-		StringTokenizer tok = new StringTokenizer(program.toString(), "\n");
+		StringTokenizer lines = new StringTokenizer(program.toString(), "\n");
 
-		String   originalLine;
-		String   line = "";
-		String[] tokens;
+		String    line = "";
+		String[]  tokens;
+		Statement statement;
 
-		next_line:
-		while (!line.matches("\\d\\d end")) {
+		next_line: while (!line.matches("\\d\\d end")) {
 
-			// get line and remove extra whitespace
 			try {
-				originalLine = tok.nextToken();
-				System.out.println("read: " + originalLine);
-				line = originalLine.strip().replace("\s+", " ");
-			} catch (NoSuchElementException e) {
-				System.err.printf("error at: %s:\t\t EOF reached; no '99 end' command found\n", inputFileName);
-				return 1;
-			}
+				// get line and remove extra whitespace
+				try {
+					originalLine = lines.nextToken();
+					line = originalLine.strip().replaceAll("\\s+", " ");
+				} catch (NoSuchElementException e) {
+					System.err.printf("error at: %s:\t\t EOF reached; no 'end' command found\n",
+					        inputFileName);
+					success = false;
+					break next_line;
+				}
 
-			if (line.isBlank())
-				continue next_line;
+				if (line.isBlank())
+					continue next_line;
 
-			// handle line number
-			tokens = line.split(" ");
-			if (isNumber(tokens[0])) {
-				line_count = Integer.parseInt(tokens[0]);
-				symbolTable.addEntry(String.valueOf(line_count), LINE, memory.getInstructionCounter(), "");
-			}
-			else {
-				System.err.printf("error at: %s:\t\t '%s' is not a valid line number\n", inputFileName, tokens[0]);
-				return 1;
-			}
+				// handle line number
+				tokens = line.split(" ");
+				if (isNumber(tokens[0])) {
+					line_count = Integer.parseInt(tokens[0]);
+					symbolTable.addEntry(String.valueOf(line_count), LINE,
+					        memory.getInstructionCounter(), "");
+				} else {
+					System.err.printf("error at: %s:\t\t '%s' is not a valid line number\n",
+					        inputFileName, tokens[0]);
+					success = false;
+					continue next_line;
+				}
 
-			// handle command
-			if (tokens.length == 1) {
-				System.err.printf("error at: %s:%02d:%02d: no command found\n", inputFileName, line_count, originalLine.length());
-				succ = false;
-			}
+				// handle command
+				if (tokens.length == 1) {
+					System.err.printf("error at: %s:%02d:%02d: no command found\n", inputFileName,
+					        line_count, originalLine.length());
+					success = false;
+					continue next_line;
+				}
 
-			command = tokens[1];
+				statement = Statement.of(tokens[1]);
 
-			// handle constructors (int etc. declarations)
-			if (constructors.contains(command)) {
-				for (int i = 2, count = tokens.length; i < count; i++) {
-					String variable = tokens[i];
-					if (isVariableName(variable)) {
-						boolean isDeclared = symbolTable.existsSymbol(variable, VARIABLE);
-						if (isDeclared) {
-							System.err.printf(
-							        "error at: %s:%02d:%02d: variable '%s' already declared\n",
-							        inputFileName, line_count, find(originalLine, variable),
-							        variable);
-							succ = false;
-						} else {
-							switch (command) {
-							case INT:
-								int location = addVariable();
-								symbolTable.addEntry(variable, VARIABLE, location, command);
-								break;
-							default:
-								System.err.printf("bad constructor");
+				// handle constructors (int etc. declarations)
+				if (statement.isConstructor) {
+
+					for (int i = 2, count = tokens.length; i < count; i++) {
+						variable = tokens[i];
+						if (isVariableName(variable)) {
+							boolean isDeclared = symbolTable.existsSymbol(variable, VARIABLE);
+							if (isDeclared)
+								throw new VariableAlreadyDeclaredException(variable);
+						} else
+							throw new InvalidVariableNameException(variable);
+					}
+
+					statement.evaluate(line);
+					continue next_line;
+				}
+
+				// handle non-constructors
+				// if not comment, assert correct number of tokens, every variable is declared and declare constants if needed
+				if (!statement.equals(COMMENT)) {
+					int targetNumberOfTokens = statement.length;
+					if ((targetNumberOfTokens != -1) && (targetNumberOfTokens > tokens.length)) {
+						throw new UnexpectedTokensException(originalLine
+						        .substring(find(originalLine, tokens[targetNumberOfTokens])));
+					}
+
+					int tokensToScan = targetNumberOfTokens == -1 ? tokens.length
+					        : targetNumberOfTokens;
+
+					for (int i = 2; i < tokensToScan; i++) {
+						String var = tokens[i];
+						variable = var;
+						// declare constants
+						if (isNumber(var)) {
+							if (!symbolTable.existsSymbol(var, CONSTANT)) {
+								int location = addConstant(Integer.parseInt(var));
+								symbolTable.addEntry(var, CONSTANT, location, INT.identifier);
+								// future: get type of constant and add with its type
 							}
-							// future: add other types
+							// assert variable is declared
+						} else if (isVariableName(var)) {
+							if (!symbolTable.existsSymbol(var, VARIABLE))
+								throw new VariableNotDeclaredException(var);
 						}
-					} else if (isNumber(variable)) {
-						System.err.printf(
-						        "error at: %s:%02d:%02d: can't declare constant '%s' as variable\n",
-						        inputFileName, line_count, find(originalLine, variable),
-						        variable);
-						succ = false;
-					} else if (keywords.contains(variable)) {
-						System.err.printf(
-						        "error at: %s:%02d:%02d: variable name '%s' is reserved\n",
-						        inputFileName, line_count, find(originalLine, variable),
-						        variable);
-						succ = false;
-					} else {
-						System.err.printf(
-						        "%s:%02d:\t error: hmmm there is an error here... (pls let me know)\n",
-						        inputFileName, line_count, variable);
-						succ = false;
 					}
 				}
-				continue next_line;
-			}
 
-			// handle non-constructors
-			// if not comment, assert correct number of tokens, every variable is declared and declare constants if needed
-			if (!command.equals(COMMENT)) {
-				int targetNumberOfTokens = lengths.get(command);
-				if (targetNumberOfTokens != -1) {
-					System.err.printf("error at: %s:%02d:%02d: unexpected stuff '%s'\n",
-					        inputFileName,
-					        line_count, find(originalLine, tokens[targetNumberOfTokens]),
-					        originalLine
-					                .substring(find(originalLine, tokens[targetNumberOfTokens])));
-					succ = false;
-				}
+				// ===== AT THIS POINT ALL VARIABLES ARE DECLARED AND ALL CONSTANTS ARE SET =====
 
-				int tokensToScan = targetNumberOfTokens == -1 ? tokens.length
-				        : targetNumberOfTokens;
-
-				for (int i = 2; i < tokensToScan; i++) {
-					String token = tokens[i];
-					// declare constants
-					if (isNumber(token)) {
-						if (!symbolTable.existsSymbol(token, CONSTANT)) {
-							int location = addVariable();
-							symbolTable.addEntry(token, CONSTANT, location, INT);
-							addConstant(Integer.parseInt(token));
-							// future: get type and add with its type
-						}
-						// assert variable is declared
-					} else if (isVariableName(token)) {
-						if (!symbolTable.existsSymbol(token, VARIABLE)) {
-							System.err.printf(
-							        "error at: %s:%02d:%02d: variable '%s' not declared\n",
-							        inputFileName, line_count, find(originalLine, token), token);
-							succ = false;
-						}
-					} else if (keywords.contains(token)) {
-						;
-					} else {
-						System.err.printf(
-						        "%s:%02d:\t error: hmmm there is an error here... (pls let me know)\n",
-						        inputFileName, line_count, token);
-						succ = false;
-					}
-				}
-			}
 				// statement-specific checks
 				if (statement.equals(INPUT)) {
 					for (String var : line.substring(9).split(" ")) {
@@ -301,30 +265,44 @@ public class SML_Compiler {
 
 				// actually write machine code for each command
 				statement.evaluate(line);
+
+			} // end try (one statement / one line)
+			catch (Exception e) {
+				e.printStackTrace();
+				System.err.printf("error at: %s:%02d:%02d: %s", inputFileName, line_count,
+				        find(originalLine, variable), e.getMessage());
+				success = false;
+			}
 		} // end while
-		return succ ? 0 : 1;
 	} // end pass1
 
-	private static int pass2() {
-		System.out.println("*** Completing jump instructions\t ***");
-		for (int i = 0; i < 256; i++)
-			if (ifgFlags[i] < -1) {
-				int location = symbolTable.getSymbolLocation(
-				        symbolTable.getNextLine(String.valueOf(-ifgFlags[i])), LINE);
-				memory.write(i, memory.read(i) + location);
-			}
-			else if (ifgFlags[i] != -1) {
-				try {
-					int location = symbolTable.getSymbolLocation(String.valueOf(ifgFlags[i]), LINE);
+	private static void pass2() {
+		System.out.println("*** Completing goto instructions\t ***");
+		for (int i = 0; i < 256; i++) {
+			try {
+				if (ifgFlags[i] < -1) {
+					int location = symbolTable.getSymbolLocation(
+					        symbolTable.getNextLine(String.valueOf(-ifgFlags[i])), LINE);
 					memory.write(i, memory.read(i) + location);
-				} catch (UnknownSymbolException e) {
-					System.out.printf("%s:%02d:\t error: variable %s not found\n", inputFileName,
-					        line_count, ifgFlags[i]);
-					succ = false;
+				} else if (ifgFlags[i] != -1) {
+					String var = String.valueOf(i);
+					variable = var;
+					try {
+						int location = symbolTable.getSymbolLocation(String.valueOf(ifgFlags[i]),
+						        LINE);
+						memory.write(i, memory.read(i) + location);
+					} catch (UnknownSymbolException e) {
+						throw new NotALineException(var);
+					}
 				}
+			} catch (Exception e) {
+				e.printStackTrace();
+				System.err.printf("error at: %s:%02d:%02d: %s", inputFileName, line_count,
+				        find(originalLine, variable), e.getMessage());
+				success = false;
 			}
+		}
 		System.out.println("*** Compilation ended\t\t\t\t ***");
-		return 0;
 	}
 
 	private static void loadProgramFromStdin() {
@@ -350,7 +328,7 @@ public class SML_Compiler {
 	private static void loadProgramFromFile(File file) {
 		try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
 			program.setLength(0);
-			String line      = reader.readLine();
+			String line = reader.readLine();
 			while (line != null) {
 				program.append(line).append(System.lineSeparator());
 				line = reader.readLine();
@@ -391,10 +369,13 @@ public class SML_Compiler {
 
 	private static void reset() {
 		memory.clear();
+
 		Arrays.fill(ifgFlags, -1);
+
 		for (int i = 0; i < ifFlags.length; i++)
 			for (int j = 0; j < ifFlags[0].length; j++)
 				ifFlags[i][j] = -1;
+
 		for (int i = 0; i < ifFlags.length; i++)
 			for (int j = 0; j < whileFlags[0].length; j++)
 				whileFlags[i][j] = -1;
@@ -402,9 +383,7 @@ public class SML_Compiler {
 		symbolTable.clear();
 
 		inputFileName = "";
-		succ = true;
-
-		resetMap();
+		success = true;
 	}
 
 	public static int addInstruction(int instruction) {
@@ -419,11 +398,15 @@ public class SML_Compiler {
 		return memory.assignPlaceForVariable();
 	}
 
-	private static boolean isVariableName(String var) {
+	public static void setBranchLocation(int location, int address) {
+		memory.write(location, memory.read(location) + address);
+	}
+
+	public static boolean isVariableName(String var) {
 		return var.matches("[a-zA-Z]\\w*") && !keywords.contains(var);
 	}
 
-	private static boolean isNumber(String con) {
+	public static boolean isNumber(String con) {
 		try {
 			Integer.parseInt(con, 10);
 			return true;
@@ -434,23 +417,5 @@ public class SML_Compiler {
 
 	private static int find(String line, String s) {
 		return line.indexOf(s, 2);
-	}
-
-	private static void resetMap() {
-		lengths.clear();
-		lengths.put(COMMENT, -1);
-		lengths.put(INT, -1);
-		lengths.put(INPUT, -1);
-		lengths.put(LET, -1);
-		lengths.put(PRINT, -1);
-		lengths.put(IFGOTO, 7);
-		lengths.put(IF, 5);
-		lengths.put(ELSE, 3);
-		lengths.put(ENDIF, 3);
-		lengths.put(WHILE, 5);
-		lengths.put(ENDWHILE, 3);
-		lengths.put(END, 2);
-		lengths.put(NOOP, 2);
-		lengths.put(DUMP, 2);
 	}
 }
