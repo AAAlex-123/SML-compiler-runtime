@@ -36,7 +36,7 @@ public class PostfixEvaluator {
 					location = SML_Compiler.symbolTable.getSymbolLocation(c, CONSTANT);
 				} catch (UnknownSymbolException e) {
 					location = SML_Compiler.addConstant(Integer.parseInt(c));
-					SML_Compiler.symbolTable.addEntry(c, CONSTANT, location, "");
+					SML_Compiler.symbolTable.addEntry(c, CONSTANT, location, "int");
 				}
 				stack.push(location);
 			} else if (isVariable(c)) {
@@ -46,7 +46,7 @@ public class PostfixEvaluator {
 				} catch (UnknownSymbolException e) {
 					System.out.printf("%s:%02d: error: variable %s not found\n",
 					        SML_Compiler.inputFileName, SML_Compiler.line_count, c);
-					SML_Compiler.succ = false;
+					SML_Compiler.success = false;
 					return;
 				}
 				stack.push(location);
