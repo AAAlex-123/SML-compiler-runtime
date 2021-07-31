@@ -21,7 +21,6 @@ public class SML_Executor {
 
 	static final CodeReader memory = new Memory(256);
 
-	private static int lineCount;
 	static int         accumulator;
 	private static int instructionRegister;
 	private static int operationCode;
@@ -53,7 +52,7 @@ public class SML_Executor {
 		reqs.add("screen");
 
 		reqs.fulfil("input", "stdin");
-		reqs.fulfil("output", "#");
+		reqs.fulfil("output", "stdout");
 		reqs.fulfil("screen", false);
 
 		return reqs;
@@ -87,9 +86,9 @@ public class SML_Executor {
 		String  output = (String) reqs.getValue("output");
 		boolean screen = (boolean) reqs.getValue("screen");
 
-		if (screen)
+		if (screen || output.equals("stdout"))
 			writeResultsToStdout();
-		if (!output.equals("#"))
+		if (!output.equals("stdout"))
 			writeResultsToFile(new File(output));
 	}
 
@@ -104,6 +103,7 @@ public class SML_Executor {
 			operationCode = instructionRegister / 0x100;
 			operand = instructionRegister % 0x100;
 
+			System.out.printf("from: %02x %02x%n", operationCode, operand);
 			Command.from(operationCode, operand).execute();
 		}
 	}
@@ -122,11 +122,12 @@ public class SML_Executor {
 		boolean valid;
 		int     input     = 0;
 		String  userInput = "";
+		int     lineCount = 0;
 
 		while (!userInput.equals("-ffff")) {
 			valid = false;
 			while (!valid) {
-				out("%02d ? ", lineCount);
+				out("%02x ? ", lineCount);
 				userInput = scanner.nextLine();
 
 				try {
@@ -140,16 +141,23 @@ public class SML_Executor {
 					err("%s is not a valid int.%n", userInput);
 				}
 			}
-			memory.write(lineCount++, input);
+			memory.write(lineCount, input);
+			++lineCount;
 		}
 		out("*** Program loading completed\t\t ***");
 	}
 
 	private static void loadToMemoryFromFile(File file) {
+		System.out.println(file);
 		try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-			String line;
-			while ((line = reader.readLine()) != null)
-				memory.write(lineCount++, Integer.parseInt(line));
+			int    lineCount = 0;
+			String line = reader.readLine();
+
+			while (line != null) {
+				memory.write(lineCount, Integer.parseInt(line, 16));
+				++lineCount;
+				line = reader.readLine();
+			}
 
 			System.out.println("*** Program loading completed\t\t ***");
 		} catch (FileNotFoundException e) {
@@ -197,8 +205,6 @@ public class SML_Executor {
 
 	private static void reset() {
 		memory.clear();
-		lineCount = 0;
-
 		accumulator = 0;
 	}
 }
