@@ -79,10 +79,10 @@ public enum Statement {
 		public void evaluate(String line) {
 			String[] tokens = line.split(" ");
 
-			int target_line = Integer.parseInt(tokens[2]);
+			int location   = SML_Compiler.addInstruction(Command.BRANCH.opcode());
+			int lineToJump = Integer.parseInt(tokens[2]);
 
-			int location = SML_Compiler.addInstruction(Command.BRANCH.opcode());
-			SML_Compiler.ifgFlags[location] = target_line;
+			SML_Compiler.setLineToJump(location, lineToJump);
 		}
 	},
 
@@ -112,43 +112,43 @@ public enum Statement {
 				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
 				SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc2);
 				location = SML_Compiler.addInstruction(Command.BRANCHNEG.opcode());
-				SML_Compiler.ifgFlags[location] = targetLine;
+				SML_Compiler.setLineToJump(location, targetLine);
 				break;
 			case GT:
 				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc2);
 				SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc1);
 				location = SML_Compiler.addInstruction(Command.BRANCHNEG.opcode());
-				SML_Compiler.ifgFlags[location] = targetLine;
+				SML_Compiler.setLineToJump(location, targetLine);
 				break;
 			case LE:
 				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
 				SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc2);
 				location = SML_Compiler.addInstruction(Command.BRANCHNEG.opcode());
-				SML_Compiler.ifgFlags[location] = targetLine;
+				SML_Compiler.setLineToJump(location, targetLine);
 				location = SML_Compiler.addInstruction(Command.BRANCHZERO.opcode());
-				SML_Compiler.ifgFlags[location] = targetLine;
+				SML_Compiler.setLineToJump(location, targetLine);
 				break;
 			case GE:
 				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc2);
 				SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc1);
 				location = SML_Compiler.addInstruction(Command.BRANCHNEG.opcode());
-				SML_Compiler.ifgFlags[location] = targetLine;
+				SML_Compiler.setLineToJump(location, targetLine);
 				location = SML_Compiler.addInstruction(Command.BRANCHZERO.opcode());
-				SML_Compiler.ifgFlags[location] = targetLine;
+				SML_Compiler.setLineToJump(location, targetLine);
 				break;
 			case EQ:
 				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
 				SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc2);
 				location = SML_Compiler.addInstruction(Command.BRANCHZERO.opcode());
-				SML_Compiler.ifgFlags[location] = targetLine;
+				SML_Compiler.setLineToJump(location, targetLine);
 				break;
 			case NE:
 				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
 				SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc2);
 				location = SML_Compiler.addInstruction(Command.BRANCHZERO.opcode());
-				SML_Compiler.ifgFlags[location] = -SML_Compiler.line_count;
+				SML_Compiler.setLineToJump(location, targetLine);
 				location = SML_Compiler.addInstruction(Command.BRANCH.opcode());
-				SML_Compiler.ifgFlags[location] = targetLine;
+				SML_Compiler.setLineToJump(location, targetLine);
 				break;
 			default:
 				break;
@@ -173,23 +173,21 @@ public enum Statement {
 			op2 = tokens[4];
 			loc2 = SML_Compiler.symbolTable.getSymbolLocation(op2, CONSTANT, VARIABLE);
 
-			int location, location1;
+			int location;
 			switch (condition) {
 			case LT:
-				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc2);
-				SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc1);
-				location = SML_Compiler.addInstruction(Command.BRANCHZERO.opcode());
+				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
+				location = SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc2);
+				SML_Compiler.addInstruction(Command.BRANCHNEG.opcode() + location + 3);
+				location = SML_Compiler.addInstruction(Command.BRANCH.opcode());
 				SML_Compiler.ifFlags[SML_Compiler.line_count][0] = location;
-				location = SML_Compiler.addInstruction(Command.BRANCHNEG.opcode());
-				SML_Compiler.ifFlags[SML_Compiler.line_count][1] = location;
 				break;
 			case GT:
-				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
-				SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc2);
-				location = SML_Compiler.addInstruction(Command.BRANCHZERO.opcode());
+				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc2);
+				location = SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc1);
+				SML_Compiler.addInstruction(Command.BRANCHNEG.opcode() + location + 3);
+				location = SML_Compiler.addInstruction(Command.BRANCH.opcode());
 				SML_Compiler.ifFlags[SML_Compiler.line_count][0] = location;
-				location = SML_Compiler.addInstruction(Command.BRANCHNEG.opcode());
-				SML_Compiler.ifFlags[SML_Compiler.line_count][1] = location;
 				break;
 			case LE:
 				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc2);
@@ -205,10 +203,10 @@ public enum Statement {
 				break;
 			case EQ:
 				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
-				location1 = SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc2);
-				SML_Compiler.addInstruction(Command.BRANCHZERO.opcode() + location1 + 3);
+				location = SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc2);
+				SML_Compiler.addInstruction(Command.BRANCHZERO.opcode() + location + 3);
 				location = SML_Compiler.addInstruction(Command.BRANCH.opcode());
-				SML_Compiler.ifFlags[SML_Compiler.line_count][1] = location;
+				SML_Compiler.ifFlags[SML_Compiler.line_count][0] = location;
 				break;
 			case NE:
 				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
@@ -362,7 +360,7 @@ public enum Statement {
 	NOOP("noop", 2, false) {
 		@Override
 		public void evaluate(String line) {
-			;
+			SML_Compiler.addInstruction(Command.NOOP.opcode());
 		}
 	},
 
