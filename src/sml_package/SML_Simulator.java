@@ -1,13 +1,12 @@
 package sml_package;
 
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
 
 import requirement.requirements.Requirements;
 
 public class SML_Simulator {
-
-	private static final Scanner scanner = new Scanner(System.in);
 
 	private static final String msg = "Usage:\n" +
 	        "       help    [command]\n" +
@@ -41,98 +40,106 @@ public class SML_Simulator {
 
 	public static void main(String[] args) {
 
-		System.out.println(msg);
+		System.out.println(SML_Simulator.msg);
 
-		String   userInput;
-		String[] tokens;
-		String   command = "";
+		String command;
 
-		Requirements compileReqs = SML_Compiler.getRequirements();
-		Requirements executeReqs = SML_Executor.getRequirements();
+		final Requirements compileReqs = SML_Compiler.getRequirements();
+		final Requirements executeReqs = SML_Executor.getRequirements();
 
-		while (!command.equals("exit")) {
+		do {
 			compileReqs.clear();
 			executeReqs.clear();
 
 			System.out.print("=> ");
 
-			userInput = scanner.nextLine().trim();
-			tokens = userInput.split(" ");
-			command = tokens[0];
+			final Map<String, String> options = SML_Simulator.getNextCommand();
 
-			HashMap<String, String> options = new HashMap<>(7, 1.0f);
-			options.put("-screen", "false");
-			options.put("-manual", "false");
-			options.put("-st", "false");
-			options.put("-d", "false");
-			options.put("--input", "");
-			options.put("--output", "");
-			options.put("--inter", "");
+			command = options.get("command");
 
-			if (command.equals("help")) {
-				if (tokens.length == 1)
-					System.out.println("Use help [command] to get help on a specific command");
-				else
-					printHelpForCommand(tokens[1]);
+			if (command.equals("help"))
+				SML_Simulator.printHelpForCommand(options.get("_help_for"));
 
-			} else {
+			else if (command.equals("compile")) {
 
-				// parse args
-				for (int i = 1; i < tokens.length; ++i) {
-					if (tokens[i].startsWith("--"))
-						options.put(tokens[i], tokens[++i]);
-					else if (tokens[i].startsWith("-"))
-						options.put(tokens[i], "true");
-					else
-						System.out.println("Error: invalid option: " + tokens[i]);
-				}
+				compileReqs.fulfil("input", options.get("--input"));
+				compileReqs.fulfil("output", options.get("--output"));
+				compileReqs.fulfil("screen", options.get("-screen").equals("true"));
+				compileReqs.fulfil("st", options.get("-st").equals("true"));
 
-				// do stuff according to command
-				if (command.equals("compile")) { // COMPILE
+				SML_Compiler.compile(compileReqs);
 
-					compileReqs.fulfil("input", options.get("--input"));
-					compileReqs.fulfil("output", options.get("--output"));
-					compileReqs.fulfil("screen", options.get("-screen").equals("true"));
-					compileReqs.fulfil("st", options.get("-st").equals("true"));
+			} else if (command.equals("execute")) {
 
-					SML_Compiler.compile(compileReqs);
+				executeReqs.fulfil("input", options.get("--input"));
+				executeReqs.fulfil("output", options.get("--output"));
+				executeReqs.fulfil("screen", options.get("-screen").equals("true"));
 
-				} else if (command.equals("execute")) {
+				SML_Executor.execute(executeReqs);
 
-					executeReqs.fulfil("input", options.get("--input"));
-					executeReqs.fulfil("output", options.get("--output"));
-					executeReqs.fulfil("screen", options.get("-screen").equals("true"));
+			} else if (command.equals("com_exe")) {
 
-					SML_Executor.execute(executeReqs);
+				final boolean screen = options.get("-screen").equals("true");
 
-				} else if (command.equals("com_exe")) { // COM_EXE
+				compileReqs.fulfil("input", options.get("--input"));
+				compileReqs.fulfil("output", options.get("--inter"));
+				compileReqs.fulfil("screen", screen);
+				SML_Compiler.compile(compileReqs);
 
-					boolean screen = options.get("-screen").equals("true");
+				executeReqs.fulfil("input", options.get("--inter"));
+				executeReqs.fulfil("output", options.get("--output"));
+				executeReqs.fulfil("screen", screen);
+				SML_Executor.execute(executeReqs);
 
-					// compile
-					compileReqs.fulfil("input", options.get("--input"));
-					compileReqs.fulfil("output", options.get("--inter"));
-					compileReqs.fulfil("screen", screen);
-					SML_Compiler.compile(compileReqs);
+			} else if (command.equals("exit") || command.equals("")) {
 
-					// execute
-					executeReqs.fulfil("input", options.get("--inter"));
-					executeReqs.fulfil("output", options.get("--output"));
-					executeReqs.fulfil("screen", screen);
-					SML_Executor.execute(executeReqs);
+			} else
+				System.out.println("Simulator Error: Unknown command");
+		} while (!command.equals("exit"));
+	}
 
-				} else if (command.equals("exit") || command.equals("")) {
-					;
-				} else {
-					System.out.println("Simulator Error: Unknown command");
-				}
-			}
+	private static Map<String, String> getNextCommand() {
+
+		@SuppressWarnings("resource")
+		final Scanner  scanner = new Scanner(System.in);
+		final String[] tokens  = scanner.nextLine().split(" ");
+
+		final HashMap<String, String> options = new HashMap<>(8, 1.0f);
+		options.put("_command", tokens[0]);
+		options.put("_help_for", "");
+		options.put("-screen", "false");
+		options.put("-manual", "false");
+		options.put("-st", "false");
+		options.put("--input", "");
+		options.put("--output", "");
+		options.put("--inter", "");
+
+		if (tokens.length > 1)
+			options.put("_help_for", tokens[1]);
+
+		for (int i = 1, size = tokens.length; i < size; ++i) {
+
+			final String key = tokens[i];
+
+			if (!options.containsKey(key))
+				System.err.println("Error: invalid option: " + key);
+			else if (key.startsWith("--")) {
+				++i;
+				options.put(key, tokens[i]);
+			} else if (key.startsWith("-"))
+				options.put(key, "true");
+			else
+				System.out.println("Error: invalid option: " + key);
 		}
-		System.out.println("good bye :(");
+
+		return options;
 	}
 
 	private static void printHelpForCommand(String command) {
-		if (command.equals("compile"))
+		if (command.equals(""))
+			System.out.println("Use help [command] to get help on a specific command");
+
+		else if (command.equals("compile"))
 			System.out.println("Use this command to compile");
 
 		else if (command.equals("execute"))
