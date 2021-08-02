@@ -198,7 +198,7 @@ public class SML_Executor {
 		        .append("\noperation code:         " + operationCode)
 		        .append("\noperand:                " + operand)
 		        .append(String.format("\n\n\nMEMORY:\n"))
-		        .append(memory);
+		        .append(memory.dump());
 
 		return sb.toString();
 	}
