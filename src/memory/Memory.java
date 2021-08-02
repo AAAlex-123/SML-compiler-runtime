@@ -34,16 +34,15 @@ public class Memory implements CodeReader, CodeWriter {
 
 		int offset = address;
 
-		for (int i = 0; i < values.length; ++i) {
+		for (int i = 0; i < values.length; ++i)
 			// write each byte alternating between high and low bits
-			if ((i % 2) == 1) {
+			if ((i % 2) == 1)
 				write(offset, values[i] * 0x100);
-			} else {
-				int previous = read(offset);
+			else {
+				final int previous = read(offset);
 				write(offset, previous + values[i]);
 				++offset;
 			}
-		}
 	}
 
 	@Override
@@ -54,18 +53,18 @@ public class Memory implements CodeReader, CodeWriter {
 	@Override
 	public char[] readChars(int address) {
 		// read length of array from high bits to know how much to read
-		int length = read(address) / 0x100;
+		final int length = read(address) / 0x100;
 
-		int    offset = address;
-		char[] array  = new char[length];
+		int          offset = address;
+		final char[] array  = new char[length];
 
-		for (int i = 0; i < array.length; ++i) {
+		for (int i = 0; i < array.length; ++i)
 			// read each byte alternating between high and low bits
-			if ((i % 2) == 0)
-				array[i] = (char) (read(offset++) % 0x100);
-			else
+			if ((i % 2) == 0) {
+				array[i] = (char) (read(offset) % 0x100);
+				offset++;
+			} else
 				array[i] = (char) (read(offset) / 0x100);
-		}
 		return array;
 	}
 
@@ -99,7 +98,7 @@ public class Memory implements CodeReader, CodeWriter {
 
 	@Override
 	public int writeInstruction(int value) {
-		int writeLocation = instructionCounter;
+		final int writeLocation = instructionCounter;
 		write(instructionCounter, value);
 		++instructionCounter;
 		return writeLocation;
@@ -107,7 +106,7 @@ public class Memory implements CodeReader, CodeWriter {
 
 	@Override
 	public int writeConstant(int value) {
-		int writeLocation = dataCounter;
+		final int writeLocation = dataCounter;
 		write(dataCounter, value);
 		--dataCounter;
 		return writeLocation;
@@ -115,7 +114,7 @@ public class Memory implements CodeReader, CodeWriter {
 
 	@Override
 	public int assignPlaceForVariable() {
-		int writeLocation = dataCounter;
+		final int writeLocation = dataCounter;
 		--dataCounter;
 		return writeLocation;
 	}
@@ -132,39 +131,7 @@ public class Memory implements CodeReader, CodeWriter {
 	}
 
 	@Override
-	public String list() {
-		StringBuilder sb = new StringBuilder();
-		for (int i = 0; i < size; ++i)
-			sb.append(String.format("%04x%n", read(i)));
-
-		return sb.toString();
-	}
-
-	@Override
 	public String toString() {
-		StringBuilder sb = new StringBuilder();
-
-		// TODO: fix hard-coded size 16
-		for (int i = 0; i < 16; i++)
-			sb.append(sf("     %x", i));
-		sb.append("\n");
-
-		for (int i = 0; i < 16; i++) {
-			sb.append(sf("%x0", i));
-			for (int j = 0; j < 16; j++) {
-				int val = read((16 * i) + j);
-				sb.append(" ")
-				        .append(val < 0 ? "-" : "+")
-				        .append(sf("%04x", val));
-			}
-
-			sb.append("\n");
-		}
-
-		return sb.toString();
-	}
-
-	private static String sf(String text, Object... args) {
-		return String.format(text, args);
+		return dump();
 	}
 }
