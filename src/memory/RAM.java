@@ -1,15 +1,19 @@
 package memory;
 
 public interface RAM {
-	public int size();
+	int size();
 
-	public void write(int address, int value);
+	void write(int address, int value);
 
-	public void writeChars(int address, char[] values);
+	void writeChars(int address, char[] values);
 
-	public int read(int address);
+	int read(int address);
 
-	public char[] readChars(int address);
+	char[] readChars(int address);
 
-	public void clear();
+	void clear();
+
+	static String sf(String text, Object... args) {
+		return String.format(text, args);
+	}
 }
