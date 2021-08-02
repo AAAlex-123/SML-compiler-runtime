@@ -13,9 +13,7 @@ import static sml_package.Condition.LE;
 import static sml_package.Condition.LT;
 import static sml_package.Condition.NE;
 import static sml_package.Statement.COMMENT;
-import static sml_package.Statement.INPUT;
 import static sml_package.Statement.INT;
-import static sml_package.Statement.LET;
 import static symboltable.SymbolType.CONSTANT;
 import static symboltable.SymbolType.LINE;
 import static symboltable.SymbolType.VARIABLE;
@@ -29,7 +27,9 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
 import java.util.StringTokenizer;
@@ -42,6 +42,7 @@ import requirement.requirements.StringType;
 import sml_package.exceptions.InvalidVariableNameException;
 import sml_package.exceptions.NotALineException;
 import sml_package.exceptions.NotAVariableException;
+import sml_package.exceptions.UnexpectedTokenException;
 import sml_package.exceptions.UnexpectedTokensException;
 import sml_package.exceptions.VariableAlreadyDeclaredException;
 import sml_package.exceptions.VariableNotDeclaredException;
@@ -56,9 +57,9 @@ public class SML_Compiler {
 
 	private static final StringBuilder program = new StringBuilder();
 
-	public static final int[]   ifgFlags   = new int[256];
-	public static final int[][] ifFlags    = new int[256][2];
-	public static final int[][] whileFlags = new int[256][2];
+	private static final Map<Integer, Integer> ifgFlags   = new HashMap<>();
+	public static final int[][]                ifFlags    = new int[256][2];
+	public static final int[][]                whileFlags = new int[256][2];
 
 	public static String inputFileName;
 	public static int    line_count;
@@ -146,6 +147,7 @@ public class SML_Compiler {
 
 		if (st)
 			System.out.println(symbolTable);
+		// System.out.println(memory.list());
 	}
 
 	private static void pass1() {
@@ -230,37 +232,63 @@ public class SML_Compiler {
 					        : targetNumberOfTokens;
 
 					for (int i = 2; i < tokensToScan; i++) {
-						String var = tokens[i];
-						variable = var;
-						// declare constants
-						if (isNumber(var)) {
-							if (!symbolTable.existsSymbol(var, CONSTANT)) {
-								int location = addConstant(Integer.parseInt(var));
-								symbolTable.addEntry(var, CONSTANT, location, INT.identifier);
+						variable = tokens[i];
+						if (isNumber(variable)) {
+							// declare constants
+							if (!symbolTable.existsSymbol(variable, CONSTANT)) {
+								int location = addConstant(Integer.parseInt(variable));
+								symbolTable.addEntry(variable, CONSTANT, location, INT.identifier);
 								// future: get type of constant and add with its type
 							}
+						} else if (isVariableName(variable)) {
 							// assert variable is declared
-						} else if (isVariableName(var)) {
-							if (!symbolTable.existsSymbol(var, VARIABLE))
-								throw new VariableNotDeclaredException(var);
+							if (!symbolTable.existsSymbol(variable, VARIABLE))
+								throw new VariableNotDeclaredException(variable);
+						} else if (keywords.contains(variable) || (Condition.of(variable) != null)
+						        || variable.equals("=")) {
+							;
+						} else if (!isLine(variable)) {
+							throw new NotALineException(variable);
 						}
 					}
 				}
 
-				// ===== AT THIS POINT ALL VARIABLES ARE DECLARED AND ALL CONSTANTS ARE SET =====
+				/*
+				 * at this point:
+				 *  - all variables are declared
+				 *  - all constants are set
+				 *  - all lines exist
+				 */
 
 				// statement-specific checks
-				if (statement.equals(INPUT)) {
+				switch (statement) {
+				case INPUT:
 					for (String var : line.substring(9).split(" ")) {
 						variable = var;
-						if (isNumber(var))
-							throw new NotAVariableException(var);
+						if (isNumber(variable))
+							throw new NotAVariableException(variable);
 					}
-				} else if (statement.equals(LET)) {
-					String var = tokens[2];
-					variable = var;
-					if (!isVariableName(var))
-						throw new NotAVariableException(var);
+					break;
+				case LET:
+					variable = tokens[2];
+					if (!isVariableName(variable))
+						throw new NotAVariableException(variable);
+
+					variable = tokens[3];
+					if (!variable.equals("="))
+						throw new UnexpectedTokenException(variable, "=");
+					break;
+				case IFGOTO:
+					variable = tokens[3];
+					if (Condition.of(variable) == null)
+						throw new UnexpectedTokenException(variable, "a condition");
+
+					variable = tokens[5];
+					if (!variable.equals("goto"))
+						throw new UnexpectedTokenException(variable, "goto");
+					break;
+				default:
+					break;
 				}
 
 				// actually write machine code for each command
@@ -269,7 +297,7 @@ public class SML_Compiler {
 			} // end try (one statement / one line)
 			catch (Exception e) {
 				e.printStackTrace();
-				System.err.printf("error at: %s:%02d:%02d: %s", inputFileName, line_count,
+				System.err.printf("error at: %s:%02d:%02d: %s%n", inputFileName, line_count,
 				        find(originalLine, variable), e.getMessage());
 				success = false;
 			}
@@ -278,26 +306,27 @@ public class SML_Compiler {
 
 	private static void pass2() {
 		System.out.println("*** Completing goto instructions\t ***");
-		for (int i = 0; i < 256; i++) {
+		for (Integer address : ifgFlags.keySet()) {
+			int lineToJump = ifgFlags.get(address);
 			try {
-				if (ifgFlags[i] < -1) {
+				if (lineToJump < -1) {
 					int location = symbolTable.getSymbolLocation(
-					        symbolTable.getNextLine(String.valueOf(-ifgFlags[i])), LINE);
-					memory.write(i, memory.read(i) + location);
-				} else if (ifgFlags[i] != -1) {
-					String var = String.valueOf(i);
+					        symbolTable.getNextLine(String.valueOf(-lineToJump)), LINE);
+					memory.write(address, memory.read(address) + location);
+				} else if (lineToJump != -1) {
+					String var = String.valueOf(address);
 					variable = var;
 					try {
-						int location = symbolTable.getSymbolLocation(String.valueOf(ifgFlags[i]),
+						int location = symbolTable.getSymbolLocation(String.valueOf(lineToJump),
 						        LINE);
-						memory.write(i, memory.read(i) + location);
+						memory.write(address, memory.read(address) + location);
 					} catch (UnknownSymbolException e) {
-						throw new NotALineException(var);
+						throw new NotALineException(String.valueOf(lineToJump));
 					}
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
-				System.err.printf("error at: %s:%02d:%02d: %s", inputFileName, line_count,
+				System.err.printf("error at: %s:%02d:%02d: %s%n", inputFileName, line_count,
 				        find(originalLine, variable), e.getMessage());
 				success = false;
 			}
@@ -321,8 +350,8 @@ public class SML_Compiler {
 			program.append(String.format("%02d %s%n", lineCount, userInput));
 			++lineCount;
 		}
-		System.out.printf("program loading done%n");
 
+		System.out.printf("program loading done%n");
 	}
 
 	private static void loadProgramFromFile(File file) {
@@ -355,8 +384,7 @@ public class SML_Compiler {
 
 	private static void reset() {
 		memory.clear();
-
-		Arrays.fill(ifgFlags, -1);
+		ifgFlags.clear();
 
 		for (int i = 0; i < ifFlags.length; i++)
 			for (int j = 0; j < ifFlags[0].length; j++)
@@ -388,6 +416,10 @@ public class SML_Compiler {
 		memory.write(location, memory.read(location) + address);
 	}
 
+	public static void setLineToJump(int location, int lineToJump) {
+		ifgFlags.put(location, lineToJump);
+	}
+
 	public static boolean isVariableName(String var) {
 		return var.matches("[a-zA-Z]\\w*") && !keywords.contains(var);
 	}
@@ -399,6 +431,10 @@ public class SML_Compiler {
 		} catch (NumberFormatException e) {
 			return false;
 		}
+	}
+
+	public static boolean isLine(String line) {
+		return symbolTable.existsSymbol(line, LINE);
 	}
 
 	private static int find(String line, String s) {
