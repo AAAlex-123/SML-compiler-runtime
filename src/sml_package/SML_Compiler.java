@@ -342,21 +342,7 @@ public class SML_Compiler {
 	}
 
 	private static void writeResultsToStdout() {
-		boolean zeros = false;
-		for (int i = 0, size = memory.size(); i < size; i++) {
-
-			int val = memory.read(i);
-
-			// replace any number of consecutive zeros with '** ****'
-			if ((val == 0) && !zeros) {
-				zeros = true;
-				System.out.println("** ****");
-			} else if (val != 0)
-				zeros = false;
-
-			if (!zeros)
-				System.out.printf("%02x %04x\n", i, val);
-		}
+		System.out.println(memory.listShort());
 	}
 
 	private static void writeResultsToFile(File file) {
