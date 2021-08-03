@@ -1,8 +1,0 @@
-10 let p = 1
-20 let i = 1
-30 if i > 9 goto 90
-31 let p = p * i
-32 let i = i + 2
-33 goto 30
-90 print p
-99 end
