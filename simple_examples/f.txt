@@ -1,8 +1,0 @@
-10 let s = 0
-20 let i = 2
-30 if i > 30 goto 90
-31 let s = s + i
-32 let i = i + 2
-33 goto 30
-90 print s
-99 end

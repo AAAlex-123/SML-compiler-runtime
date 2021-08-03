@@ -1,10 +1,12 @@
 package sml_package;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
 
 public enum Command {
 
-	READ_INT {
+	READ_INT(0x10) {
 		@Override
 		public void execute() {
 			@SuppressWarnings("resource")
@@ -30,7 +32,7 @@ public enum Command {
 		}
 	},
 
-	READ_STRING {
+	READ_STRING(0x11) {
 		@Override
 		public void execute() {
 			@SuppressWarnings("resource")
@@ -43,21 +45,21 @@ public enum Command {
 		}
 	},
 
-	WRITE {
+	WRITE(0x12) {
 		@Override
 		public void execute() {
 			SML_Executor.out("SML: %04x", SML_Executor.memory.read(operand));
 		}
 	},
 
-	WRITE_NL {
+	WRITE_NL(0x13) {
 		@Override
 		public void execute() {
 			SML_Executor.out("SML: %04x\n", SML_Executor.memory.read(operand));
 		}
 	},
 
-	WRITE_STRING {
+	WRITE_STRING(0x14) {
 		@Override
 		public void execute() {
 			char[] chars = SML_Executor.memory.readChars(operand);
@@ -67,7 +69,7 @@ public enum Command {
 		}
 	},
 
-	WRITE_STRING_NL {
+	WRITE_STRING_NL(0x15) {
 		@Override
 		public void execute() {
 			char[] chars = SML_Executor.memory.readChars(operand);
@@ -78,20 +80,20 @@ public enum Command {
 		}
 	},
 
-	LOAD {
+	LOAD(0x20) {
 		@Override
 		public void execute() {
 			SML_Executor.accumulator = SML_Executor.memory.read(operand);
 		}
 	},
 
-	STORE {
+	STORE(0x21) {
 		@Override
 		public void execute() {
 			SML_Executor.memory.write(operand, SML_Executor.accumulator);
 		}
 	},
-	ADD {
+	ADD(0x30) {
 		@Override
 		public void execute() {
 			int sum = SML_Executor.accumulator + SML_Executor.memory.read(operand);
@@ -103,7 +105,7 @@ public enum Command {
 			SML_Executor.accumulator = sum;
 		}
 	},
-	SUBTRACT {
+	SUBTRACT(0x31) {
 		@Override
 		public void execute() {
 			int difference = SML_Executor.accumulator - SML_Executor.memory.read(operand);
@@ -115,7 +117,7 @@ public enum Command {
 			SML_Executor.accumulator = difference;
 		}
 	},
-	DIVIDE {
+	DIVIDE(0x32) {
 		@Override
 		public void execute() {
 			int divisor = SML_Executor.memory.read(operand);
@@ -134,7 +136,7 @@ public enum Command {
 			SML_Executor.accumulator = quotient;
 		}
 	},
-	MULTIPLY {
+	MULTIPLY(0x33) {
 		@Override
 		public void execute() {
 			int product = SML_Executor.accumulator * SML_Executor.memory.read(operand);
@@ -146,7 +148,7 @@ public enum Command {
 			SML_Executor.accumulator = product;
 		}
 	},
-	MOD {
+	MOD(0x34) {
 		@Override
 		public void execute() {
 			int divisor = SML_Executor.memory.read(operand);
@@ -160,7 +162,7 @@ public enum Command {
 			SML_Executor.accumulator = remainder;
 		}
 	},
-	POW {
+	POW(0x35) {
 		@Override
 		public void execute() {
 			double power = Math.pow(SML_Executor.accumulator, SML_Executor.memory.read(operand));
@@ -172,52 +174,65 @@ public enum Command {
 			SML_Executor.accumulator = (int) power;
 		}
 	},
-	BRANCH {
+	BRANCH(0x40) {
 		@Override
 		public void execute() {
 			SML_Executor.memory.setInstructionPointer(operand);
 		}
 	},
-	BRANCHNEG {
+	BRANCHNEG(0x41) {
 		@Override
 		public void execute() {
 			if (SML_Executor.accumulator < 0)
 				SML_Executor.memory.setInstructionPointer(operand);
 		}
 	},
-	BRANCHZERO {
+	BRANCHZERO(0x42) {
 		@Override
 		public void execute() {
 			if (SML_Executor.accumulator == 0)
 				SML_Executor.memory.setInstructionPointer(operand);
 		}
 	},
-	HALT {
+	HALT(0x43) {
 		@Override
 		public void execute() {
 			SML_Executor.halt();
 			System.out.println("*** Program execution terminated\t ***");
 		}
 	},
-	DUMP {
+	DUMP(0xf0) {
 		@Override
 		public void execute() {
 			SML_Executor.out("%s", SML_Executor.memory);
 		}
 	},
-	NOOP {
+	NOOP(0xf1) {
 		@Override
 		public void execute() {
 			;
 		}
 	};
 
-	protected int operand;
+	private final int operationCode;
+	protected int     operand;
+
+	private static final Map<Integer, Command> opcodeMap;
+
+	private Command(int operationCode) {
+		this.operationCode = operationCode;
+	}
+
+	public int opcode() {
+		return operationCode * 0x100;
+	}
+
+	public abstract void execute();
 
 	public abstract void execute();
 
 	public static Command from(int operationCode, int operand) {
-		Command command = from0(operationCode);
+		Command command = opcodeMap.get(operationCode);
 		if (command == null) {
 			System.out.printf("*** Invalid Operation Code: %02x\t ***\n", operationCode);
 			System.out.println("\n*** Program execution abnormally terminated ***");
@@ -228,50 +243,9 @@ public enum Command {
 		return command;
 	}
 
-	private static Command from0(int operationCode) {
-		switch (operationCode) {
-		case SML_Executor.READ_INT:
-			return READ_INT;
-		case SML_Executor.READ_STRING:
-			return READ_STRING;
-		case SML_Executor.WRITE:
-			return WRITE;
-		case SML_Executor.WRITE_NL:
-			return WRITE_NL;
-		case SML_Executor.WRITE_STRING:
-			return WRITE_STRING;
-		case SML_Executor.WRITE_STRING_NL:
-			return WRITE_STRING_NL;
-		case SML_Executor.LOAD:
-			return LOAD;
-		case SML_Executor.STORE:
-			return STORE;
-		case SML_Executor.ADD:
-			return ADD;
-		case SML_Executor.SUBTRACT:
-			return SUBTRACT;
-		case SML_Executor.DIVIDE:
-			return DIVIDE;
-		case SML_Executor.MULTIPLY:
-			return MULTIPLY;
-		case SML_Executor.MOD:
-			return MOD;
-		case SML_Executor.POW:
-			return POW;
-		case SML_Executor.BRANCH:
-			return BRANCH;
-		case SML_Executor.BRANCHNEG:
-			return BRANCHNEG;
-		case SML_Executor.BRANCHZERO:
-			return BRANCHZERO;
-		case SML_Executor.HALT:
-			return HALT;
-		case SML_Executor.DUMP:
-			return DUMP;
-		case SML_Executor.NOOP:
-			return NOOP;
-		default:
-			return null;
-		}
+	static {
+		opcodeMap = new HashMap<>();
+		for (Command command : Command.values())
+			opcodeMap.put(command.operationCode, command);
 	}
 }

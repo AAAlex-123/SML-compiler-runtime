@@ -4,109 +4,93 @@ import static symboltable.SymbolType.CONSTANT;
 import static symboltable.SymbolType.VARIABLE;
 
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Stack;
 
+import sml_package.Command;
 import sml_package.SML_Compiler;
-import sml_package.SML_Executor;
 import symboltable.UnknownSymbolException;
 
 public class PostfixEvaluator {
 
 	private static final Stack<Integer> stack = new Stack<>();
 
-	private static final String[] keyWords = new String[] {"rem", "input", "if", "goto", "let", "print", "end"};
-	private static final String[] operators = new String[] { "+", "-", "*", "/", "^", "%", "(",
-	        ")" };
+	private static final Collection<String> keywords  = new HashSet<>();
+	private static final Collection<String> operators = new HashSet<>();
 
-	public static void main(String[] args) {
-		String my_postfix = "10 2 2 5 1 * 3 - - * + ";
-		String postfix = "6 2 + 5 * 8 4 / - ";
-		System.out.println("my_postfix: " + evaluatePostfixMultiDigit(my_postfix));
-		System.out.println("result: " + evaluatePostfixMultiDigit(postfix));
-
+	static {
+		keywords.addAll(Arrays.asList("rem", "input", "if", "goto", "let", "print", "end"));
+		operators.addAll(Arrays.asList("+", "-", "*", "/", "^", "%", "(", ")"));
 	}
 
 	public static void evaluatePostfix(List<Token> postfix) {
-		System.out.println(postfix);
-		postfix.add(Token.RIGHT_PAREN);
 
-		int x, y, loc = -1, index = 0;
-
-		String c = postfix.get(index++).value;
-
-		while (!c.equals(")")) {
+		for (Token token : postfix) {
+			String c = token.value;
 
 			if (isConstant(c)) {
+				int location;
 				try {
-					loc = SML_Compiler.symbolTable.getSymbolLocation(c, CONSTANT);
+					location = SML_Compiler.symbolTable.getSymbolLocation(c, CONSTANT);
 				} catch (UnknownSymbolException e) {
-					SML_Compiler.symbolTable.addEntry(c, CONSTANT, SML_Compiler.dataCounter, "");
-					SML_Compiler.SMLArray[SML_Compiler.dataCounter--] = Integer.parseInt(c);
-					loc = SML_Compiler.dataCounter+1;
+					location = SML_Compiler.addConstant(Integer.parseInt(c));
+					SML_Compiler.symbolTable.addEntry(c, CONSTANT, location, "int");
 				}
-				stack.push(loc);
+				stack.push(location);
 			} else if (isVariable(c)) {
+				int location;
 				try {
-					loc = SML_Compiler.symbolTable.getSymbolLocation(c, VARIABLE);
+					location = SML_Compiler.symbolTable.getSymbolLocation(c, VARIABLE);
 				} catch (UnknownSymbolException e) {
-					System.out.printf("%s:%02d: error: variable %s not found\n", SML_Compiler.inputFileName, SML_Compiler.line_count, c);
-					SML_Compiler.succ = false;
+					System.out.printf("%s:%02d: error: variable %s not found\n",
+					        SML_Compiler.inputFileName, SML_Compiler.line_count, c);
+					SML_Compiler.success = false;
+					return;
 				}
-				stack.push(loc);
+				stack.push(location);
 
 			} else if (isOperator(c)) {
-				x = stack.pop();
-				y = stack.pop();
-				SML_Compiler.SMLArray[SML_Compiler.instructionCounter++] = (SML_Executor.LOAD * 0x100) + y;
+				int y = stack.pop();
+				int x = stack.pop();
 
-				SML_Compiler.SMLArray[SML_Compiler.instructionCounter] = x;
-				if (c.equals("+")) SML_Compiler.SMLArray[SML_Compiler.instructionCounter] += SML_Executor.ADD * 0x100;
-				else if (c.equals("-")) SML_Compiler.SMLArray[SML_Compiler.instructionCounter] += SML_Executor.SUBTRACT * 0x100;
-				else if (c.equals("*")) SML_Compiler.SMLArray[SML_Compiler.instructionCounter] += SML_Executor.MULTIPLY * 0x100;
-				else if (c.equals("/")) SML_Compiler.SMLArray[SML_Compiler.instructionCounter] += SML_Executor.DIVIDE * 0x100;
-				else if (c.equals("%")) SML_Compiler.SMLArray[SML_Compiler.instructionCounter] += SML_Executor.MOD * 0x100;
-				else if (c.equals("^")) SML_Compiler.SMLArray[SML_Compiler.instructionCounter] += SML_Executor.POW * 0x100;
+				int instruction;
 
-				SML_Compiler.instructionCounter++;
+				if (c.equals("+"))
+					instruction = Command.ADD.opcode();
+				else if (c.equals("-"))
+					instruction = Command.SUBTRACT.opcode();
+				else if (c.equals("*"))
+					instruction = Command.MULTIPLY.opcode();
+				else if (c.equals("/"))
+					instruction = Command.DIVIDE.opcode();
+				else if (c.equals("%"))
+					instruction = Command.MOD.opcode();
+				else if (c.equals("^"))
+					instruction = Command.POW.opcode();
+				else
+					instruction = -1;
 
-				SML_Compiler.SMLArray[SML_Compiler.instructionCounter++] = (SML_Executor.STORE * 0x100) + SML_Compiler.dataCounter;
+				int tempResultLocation = SML_Compiler.addVariable();
 
-				stack.push(SML_Compiler.dataCounter--);
+				SML_Compiler.addInstruction(Command.LOAD.opcode() + x);
+				SML_Compiler.addInstruction(instruction + y);
+				SML_Compiler.addInstruction(Command.STORE.opcode() + tempResultLocation);
+
+				stack.push(tempResultLocation);
 			}
-			c = postfix.get(index++).value;
 		}
-		SML_Compiler.SMLArray[SML_Compiler.instructionCounter++] = (SML_Executor.LOAD * 0x100) + stack.pop();
+		SML_Compiler.addInstruction(Command.LOAD.opcode() + stack.pop());
 	}
 
-	static double evaluatePostfixMultiDigit(String postfix) {
-		postfix += ")";
-		int x, y, index = 0;
-		String[] tokens = postfix.split(" ");
-		String c = tokens[index++];
-
-		while (!c.equals(")")) {
-
-			if (c.matches("-?\\d+")) {
-				stack.push(Integer.parseInt(c));
-
-			} else if (isOperator(c)){
-				x = stack.pop();
-				y = stack.pop();
-				stack.push(calculate(x, y, c));
-			}
-			c = tokens[index++];
+	private static boolean isConstant(String con) {
+		try {
+			Integer.parseInt(con);
+			return true;
+		} catch (NumberFormatException e) {
+			return false;
 		}
-		return stack.pop();
-	}
-	private static int calculate(int x, int y, String op) {
-		if (op.equals("+")) return y+x;
-		else if (op.equals("-")) return y-x;
-		else if (op.equals("*")) return y*x;
-		else if (op.equals("/")) return y/x;
-		else if (op.equals("%")) return y%x;
-		else if (op.equals("^")) return (int) Math.pow(y, x);
-		else return -1;
 	}
 
 	private static boolean isVariable(String var) {
@@ -114,21 +98,11 @@ public class PostfixEvaluator {
 			Integer.parseInt(var);
 			return false;
 		} catch (NumberFormatException e) {
-			return !Arrays.asList(keyWords).contains(var) && !Arrays.asList(operators).contains(var);
+			return !keywords.contains(var) && !isOperator(var);
 		}
-	}
-	private static boolean isConstant(String con) {
-		if (con.startsWith("\"") && con.endsWith("\"")) return true;
-		try {
-			Integer.parseInt(con);
-			return !Arrays.asList(keyWords).contains(con);
-		} catch (NumberFormatException e) {return false;}
 	}
 
 	private static boolean isOperator(String operator) {
-		for (String c : operators)
-			if (operator.equals(c))
-				return true;
-		return false;
+		return operators.contains(operator);
 	}
 }

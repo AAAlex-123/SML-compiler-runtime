@@ -21,34 +21,11 @@ public class SML_Executor {
 
 	static final CodeReader memory = new Memory(256);
 
-	static final int        READ_INT        = 0x10;
-	static final int        READ_STRING     = 0x11;
-	static final int        WRITE           = 0x12;
-	static final int        WRITE_NL        = 0x13;
-	static final int        WRITE_STRING    = 0x14;
-	static final int        WRITE_STRING_NL = 0x15;
-	public static final int LOAD            = 0x20;
-	public static final int STORE           = 0x21;
-	public static final int ADD             = 0x30;
-	public static final int SUBTRACT        = 0x31;
-	public static final int DIVIDE          = 0x32;
-	public static final int MULTIPLY        = 0x33;
-	public static final int MOD             = 0x34;
-	public static final int POW             = 0x35;
-	static final int        BRANCH          = 0x40;
-	static final int        BRANCHNEG       = 0x41;
-	static final int        BRANCHZERO      = 0x42;
-	static final int        HALT            = 0x43;
-	static final int        DUMP            = 0xf0;
-	static final int        NOOP            = 0xf1;
-
-	private static int lineCount;
 	static int         accumulator;
-	static int         instructionCounter;
 	private static int instructionRegister;
 	private static int operationCode;
 	private static int operand;
-	static boolean     halt;
+	private static boolean halt;
 
 	public static void main(String[] args) {
 		System.out.println("*** Welcome to Program!\t\t\t ***");
@@ -75,10 +52,14 @@ public class SML_Executor {
 		reqs.add("screen");
 
 		reqs.fulfil("input", "stdin");
-		reqs.fulfil("output", "#");
+		reqs.fulfil("output", "stdout");
 		reqs.fulfil("screen", false);
 
 		return reqs;
+	}
+
+	static void halt() {
+		halt = true;
 	}
 
 	static void execute(Requirements reqs) {
@@ -105,16 +86,16 @@ public class SML_Executor {
 		String  output = (String) reqs.getValue("output");
 		boolean screen = (boolean) reqs.getValue("screen");
 
-		if (screen)
+		if (screen || output.equals("stdout"))
 			writeResultsToStdout();
-		if (!output.equals("#"))
+		if (!output.equals("stdout"))
 			writeResultsToFile(new File(output));
 	}
 
 	private static void executeInstructionsFromMemory() {
 		System.out.println("*** Program execution begins\t\t ***");
 		memory.initialiseForExecution();
-		instructionCounter = instructionRegister = operationCode = operand = accumulator = 0;
+		accumulator = 0;
 		halt = false;
 
 		while (!halt) {
@@ -140,11 +121,12 @@ public class SML_Executor {
 		boolean valid;
 		int     input     = 0;
 		String  userInput = "";
+		int     lineCount = 0;
 
 		while (!userInput.equals("-ffff")) {
 			valid = false;
 			while (!valid) {
-				out("%02d ? ", lineCount);
+				out("%02x ? ", lineCount);
 				userInput = scanner.nextLine();
 
 				try {
@@ -158,16 +140,22 @@ public class SML_Executor {
 					err("%s is not a valid int.%n", userInput);
 				}
 			}
-			memory.write(lineCount++, input);
+			memory.write(lineCount, input);
+			++lineCount;
 		}
 		out("*** Program loading completed\t\t ***");
 	}
 
 	private static void loadToMemoryFromFile(File file) {
 		try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-			String line;
-			while ((line = reader.readLine()) != null)
-				memory.write(lineCount++, Integer.parseInt(line));
+			int    lineCount = 0;
+			String line = reader.readLine();
+
+			while (line != null) {
+				memory.write(lineCount, Integer.parseInt(line, 16));
+				++lineCount;
+				line = reader.readLine();
+			}
 
 			System.out.println("*** Program loading completed\t\t ***");
 		} catch (FileNotFoundException e) {
@@ -192,7 +180,7 @@ public class SML_Executor {
 	}
 
 	static void out(String text, Object... args) {
-		System.out.printf("EXEC: " + text, args);
+		System.out.printf(text, args);
 	}
 
 	static void err(String text, Object... args) {
@@ -203,24 +191,18 @@ public class SML_Executor {
 		StringBuilder sb = new StringBuilder();
 		sb.append("REGISTERES:")
 		        .append("\naccumulator:            " + accumulator)
-		        .append("\ninstruction counter:    " + instructionCounter)
+		        .append("\ninstruction counter:    " + memory.getInstructionPointer())
 		        .append("\ninstruction register:   " + instructionRegister)
 		        .append("\noperation code:         " + operationCode)
 		        .append("\noperand:                " + operand)
 		        .append(String.format("\n\n\nMEMORY:\n"))
-		        .append(memory);
+		        .append(memory.dump());
 
 		return sb.toString();
 	}
 
 	private static void reset() {
 		memory.clear();
-		lineCount = 0;
-
 		accumulator = 0;
-		instructionCounter = 0;
-		instructionRegister = 0;
-		operationCode = 0;
-		operand = 0;
 	}
 }
