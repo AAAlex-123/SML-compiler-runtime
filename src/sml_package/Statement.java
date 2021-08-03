@@ -1,7 +1,6 @@
 package sml_package;
 
 import static symboltable.SymbolType.CONSTANT;
-import static symboltable.SymbolType.LINE;
 import static symboltable.SymbolType.VARIABLE;
 
 import java.util.HashMap;
@@ -9,6 +8,9 @@ import java.util.Map;
 
 import postfix.InfixToPostfix;
 import postfix.PostfixEvaluator;
+import sml_package.blocks.Block;
+import sml_package.blocks.IfBlock;
+import sml_package.blocks.WhileBlock;
 
 public enum Statement {
 
@@ -159,6 +161,9 @@ public enum Statement {
 	IF("if", 5, false) {
 		@Override
 		public void evaluate(String line) {
+
+			final IfBlock block = new IfBlock();
+
 			String[] tokens = line.split(" ");
 
 			String    op1, op2;
@@ -173,95 +178,84 @@ public enum Statement {
 			op2 = tokens[4];
 			loc2 = SML_Compiler.symbolTable.getSymbolLocation(op2, CONSTANT, VARIABLE);
 
-			int location;
+			int location = 0;
 			switch (condition) {
 			case LT:
 				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
 				location = SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc2);
 				SML_Compiler.addInstruction(Command.BRANCHNEG.opcode() + location + 3);
 				location = SML_Compiler.addInstruction(Command.BRANCH.opcode());
-				SML_Compiler.ifFlags[SML_Compiler.line_count][0] = location;
 				break;
 			case GT:
 				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc2);
 				location = SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc1);
 				SML_Compiler.addInstruction(Command.BRANCHNEG.opcode() + location + 3);
 				location = SML_Compiler.addInstruction(Command.BRANCH.opcode());
-				SML_Compiler.ifFlags[SML_Compiler.line_count][0] = location;
 				break;
 			case LE:
 				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc2);
 				SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc1);
 				location = SML_Compiler.addInstruction(Command.BRANCHNEG.opcode());
-				SML_Compiler.ifFlags[SML_Compiler.line_count][0] = location;
 				break;
 			case GE:
 				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
 				SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc2);
 				location = SML_Compiler.addInstruction(Command.BRANCHNEG.opcode());
-				SML_Compiler.ifFlags[SML_Compiler.line_count][0] = location;
 				break;
 			case EQ:
 				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
 				location = SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc2);
 				SML_Compiler.addInstruction(Command.BRANCHZERO.opcode() + location + 3);
 				location = SML_Compiler.addInstruction(Command.BRANCH.opcode());
-				SML_Compiler.ifFlags[SML_Compiler.line_count][0] = location;
 				break;
 			case NE:
 				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
 				SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc2);
 				location = SML_Compiler.addInstruction(Command.BRANCHZERO.opcode());
-				SML_Compiler.ifFlags[SML_Compiler.line_count][0] = location;
 				break;
 			default:
 				break;
 			}
+			block.locationOfBranchToEndOfBlock = location;
+			SML_Compiler.pushBlock(block);
 		}
 	},
 
-	ELSE("else", 3, false) {
+	ELSE("else", 2, false) {
 		@Override
 		public void evaluate(String line) {
-			String[] tokens = line.split(" ");
+			IfBlock oldBlock     = (IfBlock) SML_Compiler.popBlock();
+			int     locationOfIf = oldBlock.locationOfBranchToEndOfBlock;
+			int location     = SML_Compiler.addInstruction(Command.BRANCH.opcode());
 
-			int location = SML_Compiler.addInstruction(Command.BRANCH.opcode());
-			SML_Compiler.ifFlags[SML_Compiler.line_count][0] = location;
+			Block block = new IfBlock();
+			block.locationOfBranchToEndOfBlock = location;
+			SML_Compiler.pushBlock(block);
 
-			String target_line = tokens[2];
-			for (int i = 0; i < SML_Compiler.ifFlags[0].length; i++) {
-				int branch_loc = SML_Compiler.ifFlags[Integer.parseInt(target_line)][i];
-				if (branch_loc != -1) {
-					int location1 = SML_Compiler.symbolTable
-					        .getSymbolLocation(String.valueOf(SML_Compiler.line_count))
-					        + 1;
-					SML_Compiler.setBranchLocation(branch_loc, location1);
-				}
-			}
+			SML_Compiler.setBranchLocation(locationOfIf, location + 1);
 		}
 	},
 
-	ENDIF("endif", 3, false) {
+	ENDIF("endif", 2, false) {
 		@Override
 		public void evaluate(String line) {
-			String[] tokens = line.split(" ");
+			IfBlock oldBlock     = (IfBlock) SML_Compiler.popBlock();
+			int     locationOfIf = oldBlock.locationOfBranchToEndOfBlock;
 
-			String target_line = tokens[2];
-			for (int i = 0; i < SML_Compiler.ifFlags[0].length; i++) {
-				int branch_loc = SML_Compiler.ifFlags[Integer.parseInt(target_line)][i];
-				if (branch_loc != -1) {
-					int location = SML_Compiler.symbolTable
-					        .getSymbolLocation(String.valueOf(SML_Compiler.line_count));
-					SML_Compiler.setBranchLocation(branch_loc, location);
-				}
-			}
+			int location = SML_Compiler.symbolTable
+			        .getSymbolLocation(String.valueOf(SML_Compiler.line_count));
+
+			SML_Compiler.setBranchLocation(locationOfIf, location);
 		}
 	},
 
 	WHILE("while", 5, false) {
 		@Override
 		public void evaluate(String line) {
-			String[]  tokens = line.split(" ");
+
+			WhileBlock block = new WhileBlock();
+
+			String[] tokens = line.split(" ");
 
 			String    op1, op2;
 			int       loc1, loc2;
@@ -275,78 +269,64 @@ public enum Statement {
 			op2 = tokens[4];
 			loc2 = SML_Compiler.symbolTable.getSymbolLocation(op2, CONSTANT, VARIABLE);
 
-			int location, location1;
+			int start    = 0;
+			int location = 0;
 			switch (condition) {
 			case LT:
-				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc2);
-				SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc1);
-				location = SML_Compiler.addInstruction(Command.BRANCHZERO.opcode());
-				SML_Compiler.whileFlags[SML_Compiler.line_count][0] = location;
-				location = SML_Compiler.addInstruction(Command.BRANCHNEG.opcode());
-				SML_Compiler.whileFlags[SML_Compiler.line_count][1] = location;
+				start = SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
+				location = SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc2);
+				SML_Compiler.addInstruction(Command.BRANCHNEG.opcode() + location + 3);
+				location = SML_Compiler.addInstruction(Command.BRANCH.opcode());
 				break;
 			case GT:
-				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
-				SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc2);
-				location = SML_Compiler.addInstruction(Command.BRANCHZERO.opcode());
-				SML_Compiler.whileFlags[SML_Compiler.line_count][0] = location;
-				location = SML_Compiler.addInstruction(Command.BRANCHNEG.opcode());
-				SML_Compiler.whileFlags[SML_Compiler.line_count][1] = location;
+				start = SML_Compiler.addInstruction(Command.LOAD.opcode() + loc2);
+				location = SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc1);
+				SML_Compiler.addInstruction(Command.BRANCHNEG.opcode() + location + 3);
+				location = SML_Compiler.addInstruction(Command.BRANCH.opcode());
 				break;
 			case LE:
-				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc2);
+				start = SML_Compiler.addInstruction(Command.LOAD.opcode() + loc2);
 				SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc1);
 				location = SML_Compiler.addInstruction(Command.BRANCHNEG.opcode());
-				SML_Compiler.whileFlags[SML_Compiler.line_count][0] = location;
 				break;
 			case GE:
-				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
+				start = SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
 				SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc2);
 				location = SML_Compiler.addInstruction(Command.BRANCHNEG.opcode());
-				SML_Compiler.whileFlags[SML_Compiler.line_count][0] = location;
 				break;
 			case EQ:
-				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
-				location1 = SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc2);
-				location = SML_Compiler.addInstruction(Command.BRANCHZERO.opcode() + location1 + 3);
-				SML_Compiler.whileFlags[SML_Compiler.line_count][0] = location;
+				start = SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
+				location = SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc2);
+				SML_Compiler.addInstruction(Command.BRANCHZERO.opcode() + location + 3);
 				location = SML_Compiler.addInstruction(Command.BRANCH.opcode());
-				SML_Compiler.whileFlags[SML_Compiler.line_count][1] = location;
 				break;
 			case NE:
-				SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
+				start = SML_Compiler.addInstruction(Command.LOAD.opcode() + loc1);
 				SML_Compiler.addInstruction(Command.SUBTRACT.opcode() + loc2);
 				location = SML_Compiler.addInstruction(Command.BRANCHZERO.opcode());
-				SML_Compiler.whileFlags[SML_Compiler.line_count][0] = location;
 				break;
 			default:
 				break;
 			}
+			block.locationOfFirstCommandToLoopBack = start;
+			block.locationOfBranchToEndOfBlock = location;
+			SML_Compiler.pushBlock(block);
 		}
 	},
 
-	ENDWHILE("endwhile", 3, false) {
+	ENDWHILE("endwhile", 2, false) {
 		@Override
 		public void evaluate(String line) {
-			String[] tokens = line.split(" ");
 
-			String target_line = tokens[2];
+			WhileBlock block = (WhileBlock) SML_Compiler.popBlock();
 
-			int location = SML_Compiler.symbolTable.getSymbolLocation(target_line, LINE);
-			SML_Compiler.addInstruction(Command.BRANCH.opcode() + location);
+			int whileStartLocation  = block.locationOfFirstCommandToLoopBack;
+			int endWhileLocation   = SML_Compiler
+			        .addInstruction(Command.BRANCH.opcode() + whileStartLocation);
 
-			for (int i = 0; i < SML_Compiler.whileFlags[0].length; i++) {
 
-				int branchLocation = SML_Compiler.whileFlags[Integer.parseInt(target_line)][i];
-
-				// if ((branchLocation != -1) && ((SML_Compiler.memory.read(branchLocation) % 0x100) == 0)) {
-				if (branchLocation != -1) {
-					int location1 = SML_Compiler.symbolTable
-					        .getSymbolLocation(String.valueOf(SML_Compiler.line_count))
-					        + 1;
-					SML_Compiler.setBranchLocation(branchLocation, location1);
-				}
-			}
+			int locationOfWhile = block.locationOfBranchToEndOfBlock;
+			SML_Compiler.setBranchLocation(locationOfWhile, endWhileLocation + 1);
 		}
 	},
 
