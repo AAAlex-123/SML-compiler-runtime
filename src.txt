@@ -1,28 +1,27 @@
-00 // print evens and 0 in span
+00 // declare variables
+01 int a b c
 
-08 int i s e temp again
-09 // get span
-10 input s e
-14 let i = s
+02 // (b^2 + c^2)^2 / 5 must be greater than 10
+04 input b c
+08 let a = ((b*b)   +c*   c) ^2/ 5
+12 print a b c
 
-19 // print numbers
-20 while i <= e
+16 goto 24
+20 noop
+24 ifg a < 10 goto 4
 
-22   let 10owo = i % 2
+26 // number guessing game, 0=too high, 1=too low
+28 while b != c
+32   input b
+36   if b < c
+40     print 1
+44   else
+48     if b > c
+52       print 0
+56     endif
+60   endif
+64 endwhile
 
-23 // number if even, else 0
-24   if temp == 0
-26     print i
-28   else 24
-32     print 0 + 5
-34   endif 28
-
-35 // increment counter
-36   let i = i + 1
-40 endwhile 20
-
-49 // ask again
-50 input again
-52 ifg again == 1 goto 10
+68 print c
 
 99 end
