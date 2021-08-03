@@ -103,7 +103,6 @@ public class SML_Executor {
 			operationCode = instructionRegister / 0x100;
 			operand = instructionRegister % 0x100;
 
-			System.out.printf("from: %02x %02x%n", operationCode, operand);
 			Command.from(operationCode, operand).execute();
 		}
 	}
@@ -148,7 +147,6 @@ public class SML_Executor {
 	}
 
 	private static void loadToMemoryFromFile(File file) {
-		System.out.println(file);
 		try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
 			int    lineCount = 0;
 			String line = reader.readLine();
@@ -182,7 +180,7 @@ public class SML_Executor {
 	}
 
 	static void out(String text, Object... args) {
-		System.out.printf("EXEC: " + text, args);
+		System.out.printf(text, args);
 	}
 
 	static void err(String text, Object... args) {
