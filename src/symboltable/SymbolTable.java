@@ -40,6 +40,10 @@ public class SymbolTable {
 		map.put(key, value);
 	}
 
+	public boolean existsSymbol(String symbol, SymbolType type) {
+		return map.containsKey(new MapKey(symbol, type));
+	}
+
 	public int getSymbolLocation(String symbol) {//throws UnknownSymbolException {
 		TableEntry te = null;
 		for (SymbolType type : SymbolType.values()) {
@@ -87,7 +91,7 @@ public class SymbolTable {
 				return te.getSymbol();
 			}
 
-			found = (symbol.equals(te.getSymbol()) && (te.getType() == LINE));
+			found = found || (symbol.equals(te.getSymbol()) && (te.getType() == LINE));
 		}
 
 		throw new UnknownSymbolException(symbol);
