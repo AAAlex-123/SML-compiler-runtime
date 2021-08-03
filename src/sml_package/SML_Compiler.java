@@ -32,6 +32,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
+import java.util.Stack;
 import java.util.StringTokenizer;
 
 import memory.CodeWriter;
@@ -39,9 +40,11 @@ import memory.Memory;
 import requirement.requirements.AbstractRequirement;
 import requirement.requirements.Requirements;
 import requirement.requirements.StringType;
+import sml_package.blocks.Block;
 import sml_package.exceptions.InvalidVariableNameException;
 import sml_package.exceptions.NotALineException;
 import sml_package.exceptions.NotAVariableException;
+import sml_package.exceptions.UnclosedBlockException;
 import sml_package.exceptions.UnexpectedTokenException;
 import sml_package.exceptions.UnexpectedTokensException;
 import sml_package.exceptions.VariableAlreadyDeclaredException;
@@ -58,8 +61,7 @@ public class SML_Compiler {
 	private static final StringBuilder program = new StringBuilder();
 
 	private static final Map<Integer, Integer> ifgFlags   = new HashMap<>();
-	public static final int[][]                ifFlags    = new int[256][2];
-	public static final int[][]                whileFlags = new int[256][2];
+	private static final Stack<Block>          blockStack = new Stack<>();
 
 	public static String inputFileName;
 	public static int    line_count;
@@ -223,9 +225,10 @@ public class SML_Compiler {
 				// if not comment, assert correct number of tokens, every variable is declared and declare constants if needed
 				if (!statement.equals(COMMENT)) {
 					int targetNumberOfTokens = statement.length;
-					if ((targetNumberOfTokens != -1) && (targetNumberOfTokens > tokens.length)) {
-						throw new UnexpectedTokensException(originalLine
-						        .substring(find(originalLine, tokens[targetNumberOfTokens])));
+					if ((targetNumberOfTokens != -1) && (targetNumberOfTokens < tokens.length)) {
+						variable = tokens[targetNumberOfTokens];
+						throw new UnexpectedTokensException(
+						        originalLine.substring(find(originalLine, variable)).strip());
 					}
 
 					int tokensToScan = targetNumberOfTokens == -1 ? tokens.length
@@ -245,7 +248,7 @@ public class SML_Compiler {
 							if (!symbolTable.existsSymbol(variable, VARIABLE))
 								throw new VariableNotDeclaredException(variable);
 						} else if (keywords.contains(variable) || (Condition.of(variable) != null)
-						        || variable.equals("=")) {
+						        || variable.equals("=") || statement.equals(Statement.LET)) {
 							;
 						} else if (!isLine(variable)) {
 							throw new NotALineException(variable);
@@ -286,6 +289,11 @@ public class SML_Compiler {
 					variable = tokens[5];
 					if (!variable.equals("goto"))
 						throw new UnexpectedTokenException(variable, "goto");
+					break;
+				case END:
+					if (!blockStack.empty())
+						throw new UnclosedBlockException();
+
 					break;
 				default:
 					break;
@@ -385,15 +393,7 @@ public class SML_Compiler {
 	private static void reset() {
 		memory.clear();
 		ifgFlags.clear();
-
-		for (int i = 0; i < ifFlags.length; i++)
-			for (int j = 0; j < ifFlags[0].length; j++)
-				ifFlags[i][j] = -1;
-
-		for (int i = 0; i < ifFlags.length; i++)
-			for (int j = 0; j < whileFlags[0].length; j++)
-				whileFlags[i][j] = -1;
-
+		blockStack.clear();
 		symbolTable.clear();
 
 		inputFileName = "";
@@ -418,6 +418,14 @@ public class SML_Compiler {
 
 	public static void setLineToJump(int location, int lineToJump) {
 		ifgFlags.put(location, lineToJump);
+	}
+
+	public static void pushBlock(Block block) {
+		blockStack.push(block);
+	}
+
+	public static Block popBlock() {
+		return blockStack.pop();
 	}
 
 	public static boolean isVariableName(String var) {
