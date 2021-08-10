@@ -2,19 +2,31 @@ package memory;
 
 import java.util.Arrays;
 
+/**
+ * An implementation of the RAM, CodeReader, CodeWriter interfaces.
+ * <p>
+ * TODO: some overflow/underflow maybe, or just mod(0x10000) each value written
+ *
+ * @author Alex Mandelias
+ */
 public class Memory implements CodeReader, CodeWriter {
+
+	static {
+		System.out.println("calling System.loadLibary() 8D");
+		System.loadLibrary("Main");
+	}
 
 	private final int[] data;
 	private final int   size;
 
+	/**
+	 * Constructs the Memory with the given {@code size}.
+	 *
+	 * @param size the number of cells
+	 */
 	public Memory(int size) {
 		data = new int[size];
 		this.size = size;
-	}
-
-	@Override
-	public void clear() {
-		Arrays.fill(data, 0);
 	}
 
 	@Override
@@ -27,6 +39,14 @@ public class Memory implements CodeReader, CodeWriter {
 		data[address] = value;
 	}
 
+	/**
+	 * @implSpec The number of individual values written is saved in the higher bits
+	 *           of the cell at {@code address}. The actual values are 16-bits
+	 *           integers, and are stored in pairs in consecutive addresses. The
+	 *           {@code odd-indexed} values are written in the stored in the high
+	 *           bits and the {@code even-indexed} values in the low bits of the
+	 *           cell, starting at the given {@code address}.
+	 */
 	@Override
 	public void writeChars(int address, char[] values) {
 		// write length of array to high bits to know how much to read
@@ -34,7 +54,7 @@ public class Memory implements CodeReader, CodeWriter {
 
 		int offset = address;
 
-		for (int i = 0; i < values.length; ++i)
+		for (int i = 0, count = values.length; i < count; ++i)
 			// write each byte alternating between high and low bits
 			if ((i % 2) == 1)
 				write(offset, values[i] * 0x100);
@@ -50,6 +70,10 @@ public class Memory implements CodeReader, CodeWriter {
 		return data[address];
 	}
 
+	/**
+	 * @implSpec complies with {@link memory.Memory#writeChars(int, char[])
+	 *           writeChars(int, char[])}.
+	 */
 	@Override
 	public char[] readChars(int address) {
 		// read length of array from high bits to know how much to read
@@ -68,19 +92,23 @@ public class Memory implements CodeReader, CodeWriter {
 		return array;
 	}
 
+	@Override
+	public void clear() {
+		Arrays.fill(data, 0);
+	}
+
+	@Override
+	public int getDumpSize() {
+		return 16;
+		// return getDumpSizeNative();
+	}
+
+	// TODO: implement
+	private native int getDumpSizeNative();
+
 	// ===== CODE READER =====
 
 	private int instructionPointer;
-
-	@Override
-	public int fetchInstruction() {
-		return read(instructionPointer++);
-	}
-
-	@Override
-	public void initialiseForExecution() {
-		instructionPointer = 0;
-	}
 
 	@Override
 	public int getInstructionPointer() {
@@ -97,38 +125,26 @@ public class Memory implements CodeReader, CodeWriter {
 	private int instructionCounter, dataCounter;
 
 	@Override
-	public int writeInstruction(int value) {
-		final int writeLocation = instructionCounter;
-		write(instructionCounter, value);
-		++instructionCounter;
-		return writeLocation;
-	}
-
-	@Override
-	public int writeConstant(int value) {
-		final int writeLocation = dataCounter;
-		write(dataCounter, value);
-		--dataCounter;
-		return writeLocation;
-	}
-
-	@Override
-	public int assignPlaceForVariable() {
-		final int writeLocation = dataCounter;
-		--dataCounter;
-		return writeLocation;
-	}
-
-	@Override
-	public void initializeForWriting() {
-		instructionCounter = 0;
-		dataCounter = size - 1;
-	}
-
-	@Override
 	public int getInstructionCounter() {
 		return instructionCounter;
 	}
+
+	@Override
+	public void setInstructionCounter(int address) {
+		instructionCounter = address;
+	}
+
+	@Override
+	public int getDataCounter() {
+		return dataCounter;
+	}
+
+	@Override
+	public void setDataCounter(int address) {
+		dataCounter = address;
+	}
+
+	// ===== TO STRING =====
 
 	@Override
 	public String toString() {
