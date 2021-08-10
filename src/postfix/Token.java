@@ -1,52 +1,82 @@
-package postfix;
+package compiler.postfix;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 
+/**
+ * Wrapper for different tokens (strings) that can appear in infix and postfix
+ * expressions. Tokens are constructed with the {@link Token#of(String)
+ * of(String)} method to allow reuse of frequently used Tokens, which are also
+ * public members of this class.
+ *
+ * @author Alex Mandelias
+ */
 public class Token {
 
-	public static final Token LEFT_PAREN  = new Token("(");
+	/** Token for Left Parenthesis */
+	public static final Token LEFT_PAREN = new Token("(");
+
+	/** Token for Right Parenthesis */
 	public static final Token RIGHT_PAREN = new Token(")");
+
+	/** Token for Addition */
 	public static final Token ADD = new Token("+");
+
+	/** Token for Subtraction */
 	public static final Token SUB = new Token("-");
+
+	/** Token for Multiplication */
 	public static final Token MUL = new Token("*");
+
+	/** Token for Division */
 	public static final Token DIV = new Token("/");
+
+	/** Token for Exponentiation */
 	public static final Token POW = new Token("^");
+
+	/** Token for Modulo Division */
 	public static final Token MOD = new Token("%");
 
 	private static final Collection<Token> operators = new HashSet<>(
-	        Arrays.asList(ADD, SUB, MUL, DIV, POW, MOD));
+	        Arrays.asList(Token.ADD, Token.SUB, Token.MUL, Token.DIV, Token.POW, Token.MOD));
 
-	public final String value;
+	/**
+	 * Returns a {@code Token} with a specific {@code value}.
+	 *
+	 * @param value the value
+	 *
+	 * @return a Token with that value
+	 */
+	public static Token of(String value) {
+		for (final Token token : Token.operators)
+			if (token.value.equals(value))
+				return token;
 
-	public static Token of(String s) {
-		switch (s) {
+		switch (value) {
 		case "(":
-			return LEFT_PAREN;
+			return Token.LEFT_PAREN;
 		case ")":
-			return RIGHT_PAREN;
-		case "+":
-			return ADD;
-		case "-":
-			return SUB;
-		case "*":
-			return MUL;
-		case "/":
-			return DIV;
-		case "^":
-			return POW;
-		case "%":
-			return MOD;
+			return Token.RIGHT_PAREN;
 		default:
-			return new Token(s);
+			return new Token(value);
 		}
 	}
 
+	/** The value the Token encapsulates */
+	public final String value;
+
+	/**
+	 * Returns whether or not this {@code Token} represents a mathematical operator.
+	 *
+	 * @return {@code true} if this Token is a mathematical operator, {@code false}
+	 *         otherwise
+	 */
 	public boolean isOperator() {
-		return operators.contains(this);
+		return Token.operators.contains(this);
 	}
 
+	// instantiate only using the `of(String)` method
 	private Token(String value) {
 		this.value = value;
 	}

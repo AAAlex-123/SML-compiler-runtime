@@ -1,108 +1,112 @@
-package postfix;
+package compiler.postfix;
 
-import static symboltable.SymbolType.CONSTANT;
-import static symboltable.SymbolType.VARIABLE;
+import static compiler.symboltable.SymbolType.CONSTANT;
+import static compiler.symboltable.SymbolType.VARIABLE;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
 
-import sml_package.Command;
-import sml_package.SML_Compiler;
-import symboltable.UnknownSymbolException;
+import compiler.SML_Compiler;
+import compiler.symboltable.SymbolTable;
+import runtime.Instruction;
 
-public class PostfixEvaluator {
+/**
+ * Defines the static method
+ * {@link PostfixEvaluator#evaluatePostfix(List, SymbolTable)
+ * evaluatePostfix(List, SymbolTable)} which returns the machine language
+ * {@link runtime.Instruction instructions} that evaluate the postfix
+ * expression. A {@link SymbolTable} is used to access and allocate the correct
+ * addresses during the evaluation.
+ *
+ * @author Alex Mandelias
+ */
+public final class PostfixEvaluator {
 
-	private static final Stack<Integer> stack = new Stack<>();
+	/* Don't let anyone instantiate this class */
+	private PostfixEvaluator() {}
 
-	private static final Collection<String> keywords  = new HashSet<>();
-	private static final Collection<String> operators = new HashSet<>();
+	/**
+	 * Generates a list of machine-language {@code Instructions} that, when run,
+	 * evaluate the {@code postfix} expression. The {@code SymbolTable} is used in
+	 * order to get the correct addresses for variables and constants and to
+	 * allocate space for storing the temporary results of the evaluation.
+	 * <p>
+	 * The evaluation assumes that all constants and variables found in the
+	 * expression are already declared, and that all variable names are valid.
+	 * <p>
+	 * TODO: error checking
+	 *
+	 * @param postfix     the valid postfix expression whose symbols are all defined
+	 * @param symbolTable the SymbolTable containing information about symbols of
+	 *                    the postfix expression, which will be used to store the
+	 *                    addresses of newly allocated variables
+	 *
+	 * @return the list of instructions
+	 */
+	public static List<Integer> evaluatePostfix(List<Token> postfix, SymbolTable symbolTable) {
 
-	static {
-		keywords.addAll(Arrays.asList("rem", "input", "if", "goto", "let", "print", "end"));
-		operators.addAll(Arrays.asList("+", "-", "*", "/", "^", "%", "(", ")"));
-	}
+		final List<Integer>  instructionList = new ArrayList<>();
+		final Stack<Integer> stack           = new Stack<>();
 
-	public static void evaluatePostfix(List<Token> postfix) {
-
-		for (Token token : postfix) {
-			String c = token.value;
-
-			if (isConstant(c)) {
-				int location;
-				try {
-					location = SML_Compiler.symbolTable.getSymbolLocation(c, CONSTANT);
-				} catch (UnknownSymbolException e) {
-					location = SML_Compiler.addConstant(Integer.parseInt(c));
-					SML_Compiler.symbolTable.addEntry(c, CONSTANT, location, "int");
-				}
+		for (final Token token : postfix) {
+			if (PostfixEvaluator.isConstant(token)) {
+				final int location = symbolTable.getSymbolLocation(token.value, CONSTANT);
 				stack.push(location);
-			} else if (isVariable(c)) {
-				int location;
-				try {
-					location = SML_Compiler.symbolTable.getSymbolLocation(c, VARIABLE);
-				} catch (UnknownSymbolException e) {
-					System.out.printf("%s:%02d: error: variable %s not found\n",
-					        SML_Compiler.inputFileName, SML_Compiler.line_count, c);
-					SML_Compiler.success = false;
-					return;
-				}
+			} else if (PostfixEvaluator.isVariable(token)) {
+				final int location = symbolTable.getSymbolLocation(token.value, VARIABLE);
 				stack.push(location);
+			} else if (token.isOperator()) {
+				final int ylocation = stack.pop();
+				final int xlocation = stack.pop();
 
-			} else if (isOperator(c)) {
-				int y = stack.pop();
-				int x = stack.pop();
+				final Instruction instruction = PostfixEvaluator.getInstructionFromToken(token);
 
-				int instruction;
+				final int resultLocation = SML_Compiler.addVariable();
 
-				if (c.equals("+"))
-					instruction = Command.ADD.opcode();
-				else if (c.equals("-"))
-					instruction = Command.SUBTRACT.opcode();
-				else if (c.equals("*"))
-					instruction = Command.MULTIPLY.opcode();
-				else if (c.equals("/"))
-					instruction = Command.DIVIDE.opcode();
-				else if (c.equals("%"))
-					instruction = Command.MOD.opcode();
-				else if (c.equals("^"))
-					instruction = Command.POW.opcode();
-				else
-					instruction = -1;
+				instructionList.add(Instruction.LOAD.opcode() + xlocation);
+				instructionList.add(instruction.opcode() + ylocation);
+				instructionList.add(Instruction.STORE.opcode() + resultLocation);
 
-				int tempResultLocation = SML_Compiler.addVariable();
-
-				SML_Compiler.addInstruction(Command.LOAD.opcode() + x);
-				SML_Compiler.addInstruction(instruction + y);
-				SML_Compiler.addInstruction(Command.STORE.opcode() + tempResultLocation);
-
-				stack.push(tempResultLocation);
+				stack.push(resultLocation);
 			}
 		}
-		SML_Compiler.addInstruction(Command.LOAD.opcode() + stack.pop());
+
+		instructionList.add(Instruction.LOAD.opcode() + stack.pop());
+		return instructionList;
 	}
 
-	private static boolean isConstant(String con) {
+	private static boolean isConstant(Token token) {
+		return PostfixEvaluator.isNumber(token);
+	}
+
+	private static boolean isVariable(Token token) {
+		return !PostfixEvaluator.isConstant(token) && !token.isOperator();
+	}
+
+	private static boolean isNumber(Token token) {
 		try {
-			Integer.parseInt(con);
+			Integer.parseInt(token.value);
 			return true;
-		} catch (NumberFormatException e) {
+		} catch (final NumberFormatException e) {
 			return false;
 		}
 	}
 
-	private static boolean isVariable(String var) {
-		try {
-			Integer.parseInt(var);
-			return false;
-		} catch (NumberFormatException e) {
-			return !keywords.contains(var) && !isOperator(var);
-		}
-	}
-
-	private static boolean isOperator(String operator) {
-		return operators.contains(operator);
+	private static Instruction getInstructionFromToken(Token token) {
+		// Token is class, not enum, can't use switch
+		if (token == Token.ADD)
+			return Instruction.ADD;
+		if (token == Token.SUB)
+			return Instruction.SUBTRACT;
+		if (token == Token.MUL)
+			return Instruction.MULTIPLY;
+		if (token == Token.DIV)
+			return Instruction.DIVIDE;
+		if (token == Token.MOD)
+			return Instruction.MOD;
+		if (token == Token.POW)
+			return Instruction.POW;
+		return null;
 	}
 }
