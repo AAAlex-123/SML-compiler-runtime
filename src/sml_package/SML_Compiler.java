@@ -318,15 +318,16 @@ public class SML_Compiler {
 			int lineToJump = ifgFlags.get(address);
 			try {
 				if (lineToJump < -1) {
-					int location = symbolTable.getSymbolLocation(
-					        symbolTable.getNextLine(String.valueOf(-lineToJump)), LINE);
+					int location = symbolTable.getSymbol(
+					        symbolTable.getNextLine(String.valueOf(-lineToJump)).symbol,
+					        LINE).location;
 					memory.write(address, memory.read(address) + location);
 				} else if (lineToJump != -1) {
 					String var = String.valueOf(address);
 					variable = var;
 					try {
-						int location = symbolTable.getSymbolLocation(String.valueOf(lineToJump),
-						        LINE);
+						int location = symbolTable.getSymbol(String.valueOf(lineToJump),
+						        LINE).location;
 						memory.write(address, memory.read(address) + location);
 					} catch (UnknownSymbolException e) {
 						throw new NotALineException(String.valueOf(lineToJump));

@@ -51,10 +51,10 @@ public final class PostfixEvaluator {
 
 		for (final Token token : postfix) {
 			if (PostfixEvaluator.isConstant(token)) {
-				final int location = symbolTable.getSymbolLocation(token.value, CONSTANT);
+				final int location = symbolTable.getSymbol(token.value, CONSTANT).location;
 				stack.push(location);
 			} else if (PostfixEvaluator.isVariable(token)) {
-				final int location = symbolTable.getSymbolLocation(token.value, VARIABLE);
+				final int location = symbolTable.getSymbol(token.value, VARIABLE).location;
 				stack.push(location);
 			} else if (token.isOperator()) {
 				final int ylocation = stack.pop();
