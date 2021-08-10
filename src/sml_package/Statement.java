@@ -308,7 +308,7 @@ public enum Statement {
 			default:
 				break;
 			}
-			block.locationOfFirstCommandToLoopBack = start;
+			block.locationOfFirstInstruction = start;
 			block.locationOfBranchToEndOfBlock = location;
 			SML_Compiler.pushBlock(block);
 		}
@@ -320,7 +320,7 @@ public enum Statement {
 
 			WhileBlock block = (WhileBlock) SML_Compiler.popBlock();
 
-			int whileStartLocation  = block.locationOfFirstCommandToLoopBack;
+			int whileStartLocation = block.locationOfFirstInstruction;
 			int endWhileLocation   = SML_Compiler
 			        .addInstruction(Command.BRANCH.opcode() + whileStartLocation);
 
