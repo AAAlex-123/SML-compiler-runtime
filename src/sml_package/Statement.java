@@ -40,7 +40,7 @@ public enum Statement {
 		public void evaluate(String line) {
 			String[] vars = line.substring(9).split(" ");
 			for (String var : vars) {
-				int loc = SML_Compiler.symbolTable.getSymbolLocation(var, VARIABLE);
+				int loc = SML_Compiler.symbolTable.getSymbol(var, VARIABLE).location;
 				SML_Compiler.addInstruction(Command.READ_INT.opcode() + loc);
 			}
 		}
@@ -50,7 +50,7 @@ public enum Statement {
 		@Override
 		public void evaluate(String line) {
 			String var = line.split(" ")[2];
-			int    loc = SML_Compiler.symbolTable.getSymbolLocation(var, VARIABLE);
+			int    loc = SML_Compiler.symbolTable.getSymbol(var, VARIABLE).location;
 
 			String infix = line.split("=")[1];
 			PostfixEvaluator.evaluatePostfix(InfixToPostfix.convertToPostfix(infix));
@@ -64,9 +64,9 @@ public enum Statement {
 		public void evaluate(String line) {
 			String[] vars = line.substring(9).split(" ");
 			for (String var : vars) {
-				int loc = SML_Compiler.symbolTable.getSymbolLocation(var, CONSTANT, VARIABLE);
+				int loc = SML_Compiler.symbolTable.getSymbol(var, CONSTANT, VARIABLE).location;
 
-				String varType = SML_Compiler.symbolTable.getVarType(var);
+				String varType = SML_Compiler.symbolTable.getSymbol(var).varType;
 
 				// future: print according to type
 				if (varType.equals(INT.identifier)) {
@@ -99,12 +99,12 @@ public enum Statement {
 			int       targetLine;
 
 			op1 = tokens[2];
-			loc1 = SML_Compiler.symbolTable.getSymbolLocation(op1, CONSTANT, VARIABLE);
+			loc1 = SML_Compiler.symbolTable.getSymbol(op1, CONSTANT, VARIABLE).location;
 
 			condition = Condition.of(tokens[3]);
 
 			op2 = tokens[4];
-			loc2 = SML_Compiler.symbolTable.getSymbolLocation(op2, CONSTANT, VARIABLE);
+			loc2 = SML_Compiler.symbolTable.getSymbol(op2, CONSTANT, VARIABLE).location;
 
 			targetLine = Integer.parseInt(tokens[6]);
 
@@ -171,12 +171,12 @@ public enum Statement {
 			Condition condition;
 
 			op1 = tokens[2];
-			loc1 = SML_Compiler.symbolTable.getSymbolLocation(op1, CONSTANT, VARIABLE);
+			loc1 = SML_Compiler.symbolTable.getSymbol(op1, CONSTANT, VARIABLE).location;
 
 			condition = Condition.of(tokens[3]);
 
 			op2 = tokens[4];
-			loc2 = SML_Compiler.symbolTable.getSymbolLocation(op2, CONSTANT, VARIABLE);
+			loc2 = SML_Compiler.symbolTable.getSymbol(op2, CONSTANT, VARIABLE).location;
 
 			int location = 0;
 			switch (condition) {
@@ -262,12 +262,12 @@ public enum Statement {
 			Condition condition;
 
 			op1 = tokens[2];
-			loc1 = SML_Compiler.symbolTable.getSymbolLocation(op1, CONSTANT, VARIABLE);
+			loc1 = SML_Compiler.symbolTable.getSymbol(op1, CONSTANT, VARIABLE).location;
 
 			condition = Condition.of(tokens[3]);
 
 			op2 = tokens[4];
-			loc2 = SML_Compiler.symbolTable.getSymbolLocation(op2, CONSTANT, VARIABLE);
+			loc2 = SML_Compiler.symbolTable.getSymbol(op2, CONSTANT, VARIABLE).location;
 
 			int start    = 0;
 			int location = 0;
