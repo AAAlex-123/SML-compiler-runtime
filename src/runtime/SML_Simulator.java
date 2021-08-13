@@ -27,11 +27,11 @@ public class SML_Simulator {
 
 	/** Informs the user about the different commands available in the Simulator */
 	private static final String msg = "Usage (parameters in [] are optional):\n"
-			+ "       help    [command]\n"
-			+ "   or  compile [options]\n"
-			+ "   or  execute [options]\n"
+	        + "       help    [command]\n"
+	        + "   or  compile [options]\n"
+	        + "   or  execute [options]\n"
 	        + "   or  com_exe [options]\n"
-			+ "\n"
+	        + "\n"
 	        + "where <command> is one of:\n"
 	        + "  compile, execute, com_exe, exit, help\n"
 	        + "\n"
@@ -99,7 +99,7 @@ public class SML_Simulator {
 	 * @return the Requirements
 	 */
 	public static Requirements getRequirements() {
-		Requirements reqs = new Requirements();
+		final Requirements reqs = new Requirements();
 
 		reqs.add("verbose");
 
@@ -125,7 +125,7 @@ public class SML_Simulator {
 	public static void run(Requirements requirements) {
 
 		if (!requirements.fulfilled()) {
-			for (AbstractRequirement r : requirements)
+			for (final AbstractRequirement r : requirements)
 				if (!r.fulfilled())
 					SML_Simulator.err("No value for parameter '%s' found", r.key());
 
@@ -133,7 +133,7 @@ public class SML_Simulator {
 			return;
 		}
 
-		boolean verboseSimulator = (boolean) requirements.getValue("verbose");
+		final boolean verboseSimulator = (boolean) requirements.getValue("verbose");
 
 		if (verboseSimulator)
 			SML_Simulator.out(SML_Simulator.msg);
@@ -154,12 +154,12 @@ public class SML_Simulator {
 
 			// put options into variables
 			command = options.get("_command");
-			String input  = options.get("--input");
-			String output = options.get("--output");
-			String  inter   = ".inter.sml";
-			boolean screen  = options.get("-screen").equals("true");
-			boolean verbose = options.get("-verbose").equals("true");
-			boolean st      = options.get("-st").equals("true");
+			final String  input   = options.get("--input");
+			final String  output  = options.get("--output");
+			final String  inter   = ".inter.sml";
+			final boolean screen  = options.get("-screen").equals("true");
+			final boolean verbose = options.get("-verbose").equals("true");
+			final boolean st      = options.get("-st").equals("true");
 
 			// fulfil compilation requirements
 			compileReqs.fulfil("input", input);
@@ -178,15 +178,11 @@ public class SML_Simulator {
 			if (command.equals("help"))
 				SML_Simulator.printHelpForCommand(options.get("_help_for"));
 
-			else if (command.equals("compile")) {
-
+			else if (command.equals("compile"))
 				SML_Compiler.compile(compileReqs);
-
-			} else if (command.equals("execute")) {
-
+			else if (command.equals("execute"))
 				SML_Executor.execute(executeReqs);
-
-			} else if (command.equals("com_exe")) {
+			else if (command.equals("com_exe")) {
 
 				compileReqs.fulfil("output", inter);
 				executeReqs.fulfil("input", inter);
@@ -243,10 +239,10 @@ public class SML_Simulator {
 			if (!options.containsKey(key))
 				SML_Simulator.err("Error: unknown option: %s", key);
 
-			else if (key.startsWith("--"))
-				options.put(key, tokens[++i]);
-
-			else if (key.startsWith("-"))
+			else if (key.startsWith("--")) {
+				i++;
+				options.put(key, tokens[i]);
+			} else if (key.startsWith("-"))
 				options.put(key, "true");
 
 			SML_Simulator.err(
@@ -283,7 +279,7 @@ public class SML_Simulator {
 		else if (command.equals("help"))
 			SML_Simulator.out(
 			        "Use this command to get help on a specific command or for the simulator as a whole\n"
-			        + "  Usage: help [compile|execute|com_exe|exit|help]");
+			                + "  Usage: help [compile|execute|com_exe|exit|help]");
 
 		else
 			SML_Simulator.err("Unknown command: " + command);
