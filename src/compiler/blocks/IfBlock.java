@@ -7,4 +7,8 @@ package compiler.blocks;
  */
 public class IfBlock extends Block {
 
+	@Override
+	public String toString() {
+		return "If Block";
+	}
 }
