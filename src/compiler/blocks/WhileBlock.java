@@ -12,4 +12,9 @@ public class WhileBlock extends Block {
 	 * instruction that starts the calculation of the condition.
 	 */
 	public int locationOfFirstInstruction;
+
+	@Override
+	public String toString() {
+		return "While Block";
+	}
 }
