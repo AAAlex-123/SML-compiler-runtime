@@ -126,13 +126,13 @@ public class SML_Compiler {
 	 * default values and can be used as-is for compilation.
 	 *
 	 * <pre>
-	 * | Value  | Default | Explanation           | Command Line |
-	 * |--------|---------|-----------------------|--------------|
-	 * | input  | stdin   | "stdin" or filename   | --           |
-	 * | output | out.sml | "stdout" or filename  | --           |
-	 * | screen | false   | output code to stdout | -            |
-	 * | st     | false   | output SymbolTable    | -            |
-	 * | quiet  | true    | only output errors    | -            |
+	 * | Value   | Default | Explanation          | Command Line |
+	 * |---------|---------|----------------------|--------------|
+	 * | input   | stdin   | "stdin" or filename  | --           |
+	 * | output  | out.sml | "stdout" or filename | --           |
+	 * | screen  | false   | output to stdout too | -            |
+	 * | st      | false   | output SymbolTable   | -            |
+	 * | verbose | false   | output all messages  | -            |
 	 * </pre>
 	 *
 	 * @return the Requirements
@@ -144,13 +144,13 @@ public class SML_Compiler {
 		reqs.add("output", StringType.ANY);
 		reqs.add("screen");
 		reqs.add("st");
-		reqs.add("quiet");
+		reqs.add("verbose");
 
 		reqs.fulfil("input", "stdin");
 		reqs.fulfil("output", "out.sml");
 		reqs.fulfil("screen", false);
 		reqs.fulfil("st", false);
-		reqs.fulfil("quiet", true);
+		reqs.fulfil("verbose", false);
 
 		return reqs;
 	}
@@ -183,11 +183,11 @@ public class SML_Compiler {
 		String  output = (String) requirements.getValue("output");
 		boolean screen = (boolean) requirements.getValue("screen");
 		boolean st     = (boolean) requirements.getValue("st");
-		boolean silent = (boolean) requirements.getValue("silent");
+		boolean verbose = (boolean) requirements.getValue("verbose");
 
 		data.inputFileName = input.equals("stdin") ? "<stdin>" : input;
 
-		if (silent) {
+		if (!verbose) {
 
 			// === SILENT COMPILATION ===
 
@@ -223,6 +223,8 @@ public class SML_Compiler {
 
 			if (input.equals("stdin")) {
 				out("Loading program from Standard Input");
+				out("The line number for each statement will be printed");
+				out("Type 'end' to stop inputting code");
 				loadProgramFromStdin();
 			} else {
 				out("Loading program from file: %s", input);
@@ -507,11 +509,11 @@ public class SML_Compiler {
 	// --- 2 method for uniform message printing ---
 
 	private static void out(String text, Object... args) {
-		System.out.printf("Compilation Info:   %s%n", String.format(text, args));
+		System.out.printf("Compilation Info:  %s%n", String.format(text, args));
 	}
 
 	private static void err(String text, Object... args) {
-		System.err.printf("Compilation Error:  %s%n", String.format(text, args));
+		System.err.printf("Compilation Error: %s%n", String.format(text, args));
 	}
 
 	// --- 3 memory wrapper-delegate methods
@@ -523,7 +525,7 @@ public class SML_Compiler {
 	 *
 	 * @return the location in memory where it was placed
 	 */
-	public static int addInstruction(int instruction) {
+	static int addInstruction(int instruction) {
 		return memory.writeInstruction(instruction);
 	}
 
@@ -534,7 +536,7 @@ public class SML_Compiler {
 	 *
 	 * @return the location in memory where it was placed
 	 */
-	public static int addConstant(int constant) {
+	static int addConstant(int constant) {
 		return memory.writeConstant(constant);
 	}
 
@@ -557,7 +559,7 @@ public class SML_Compiler {
 	 * @return the location of the declared line in memory, the location of the
 	 *         first instruction corresponding to this line
 	 */
-	public static int addLine(String symbol) {
+	static int addLine(String symbol) {
 		int location = memory.getInstructionCounter();
 		symbolTable.addEntry(symbol, LINE, location, "");
 		return location;
@@ -573,7 +575,7 @@ public class SML_Compiler {
 	 *
 	 * @return the location of the declared constant in memory
 	 */
-	public static int declareConstant(String symbol, String varType) {
+	static int declareConstant(String symbol, String varType) {
 		int location = addConstant(Integer.parseInt(symbol));
 		symbolTable.addEntry(symbol, CONSTANT, location, varType);
 		return location;
@@ -589,7 +591,7 @@ public class SML_Compiler {
 	 *
 	 * @return the location of the declared variable in memory
 	 */
-	public static int declareVariable(String symbol, String varType) {
+	static int declareVariable(String symbol, String varType) {
 		int location = addVariable();
 		SML_Compiler.symbolTable.addEntry(symbol, VARIABLE, location,
 		        varType);
@@ -606,7 +608,7 @@ public class SML_Compiler {
 	 * @see compiler.symboltable.SymbolTable#existsSymbol(String, SymbolType)
 	 *      SymbolTable.existsSymbol(String, VARIABLE)
 	 */
-	public static boolean variableDeclared(String symbol) {
+	static boolean variableDeclared(String symbol) {
 		return symbolTable.existsSymbol(symbol, VARIABLE);
 	}
 
@@ -620,7 +622,7 @@ public class SML_Compiler {
 	 * @see compiler.symboltable.SymbolTable#existsSymbol(String, SymbolType)
 	 *      SymbolTable.existsSymbol(String, CONSTANT)
 	 */
-	public static boolean constantDeclared(String symbol) {
+	static boolean constantDeclared(String symbol) {
 		return symbolTable.existsSymbol(symbol, CONSTANT);
 	}
 
@@ -634,7 +636,7 @@ public class SML_Compiler {
 	 * @see compiler.symboltable.SymbolTable#existsSymbol(String, SymbolType)
 	 *      SymbolTable.existsSymbol(String, LINE)
 	 */
-	public static boolean lineDeclared(String symbol) {
+	static boolean lineDeclared(String symbol) {
 		return symbolTable.existsSymbol(symbol, LINE);
 	}
 
@@ -648,7 +650,7 @@ public class SML_Compiler {
 	 * @see compiler.symboltable.SymbolTable#getSymbol(String, SymbolType...)
 	 *      SymbolTable.getSymbol(String, VARIABLE)
 	 */
-	public static SymbolInfo getVariable(String symbol) {
+	static SymbolInfo getVariable(String symbol) {
 		return symbolTable.getSymbol(symbol, VARIABLE);
 	}
 
@@ -662,7 +664,7 @@ public class SML_Compiler {
 	 * @see compiler.symboltable.SymbolTable#getSymbol(String, SymbolType...)
 	 *      SymbolTable.getSymbol(String, CONSTANT)
 	 */
-	public static SymbolInfo getConstant(String symbol) {
+	static SymbolInfo getConstant(String symbol) {
 		return symbolTable.getSymbol(symbol, CONSTANT);
 	}
 
@@ -676,7 +678,7 @@ public class SML_Compiler {
 	 * @see compiler.symboltable.SymbolTable#getSymbol(String)
 	 *      SymbolTable.getSymbol(String, LINE)
 	 */
-	public static SymbolInfo getLine(String symbol) {
+	static SymbolInfo getLine(String symbol) {
 		return symbolTable.getSymbol(symbol, LINE);
 	}
 
@@ -690,7 +692,7 @@ public class SML_Compiler {
 	 * @see compiler.symboltable.SymbolTable#getSymbol(String, SymbolType...)
 	 *      SymbolTable.getSymbol(String, VARIABLE, CONSTANT)
 	 */
-	public static SymbolInfo getSymbol(String symbol) {
+	static SymbolInfo getSymbol(String symbol) {
 		return symbolTable.getSymbol(symbol, VARIABLE, CONSTANT);
 	}
 
@@ -700,7 +702,7 @@ public class SML_Compiler {
 	 *
 	 * @return the Symbol Table
 	 */
-	public static SymbolTable getSymbolTable() {
+	static SymbolTable getSymbolTable() {
 		return symbolTable;
 	}
 
@@ -713,7 +715,7 @@ public class SML_Compiler {
 	 * @param location the address of the instruction
 	 * @param address  the address to jump
 	 */
-	public static void setBranchLocation(int location, int address) {
+	static void setBranchLocation(int location, int address) {
 		memory.write(location, memory.read(location) + address);
 	}
 
@@ -727,7 +729,7 @@ public class SML_Compiler {
 	 * @param location   the address of the instruction.
 	 * @param lineToJump the line to jump
 	 */
-	public static void setLineToJump(int location, int lineToJump) {
+	static void setLineToJump(int location, int lineToJump) {
 		ifgFlags.put(location, lineToJump);
 	}
 
@@ -738,7 +740,7 @@ public class SML_Compiler {
 	 *
 	 * @param block the block
 	 */
-	public static void pushBlock(Block block) {
+	static void pushBlock(Block block) {
 		blockStack.push(block);
 	}
 
@@ -747,7 +749,7 @@ public class SML_Compiler {
 	 *
 	 * @return the block
 	 */
-	public static Block popBlock() {
+	static Block popBlock() {
 		return blockStack.pop();
 	}
 
