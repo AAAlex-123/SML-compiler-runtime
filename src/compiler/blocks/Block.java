@@ -25,4 +25,7 @@ public abstract class Block {
 	 * the end of the block.
 	 */
 	public int locationOfBranchToEndOfBlock;
+
+	@Override
+	public abstract String toString();
 }

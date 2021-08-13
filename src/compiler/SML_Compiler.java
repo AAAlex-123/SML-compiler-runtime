@@ -31,6 +31,7 @@ import java.util.StringTokenizer;
 
 import compiler.blocks.Block;
 import compiler.exceptions.CompilerException;
+import compiler.exceptions.InvalidLineNameException;
 import compiler.exceptions.InvalidVariableNameException;
 import compiler.exceptions.NotALineException;
 import compiler.exceptions.NotAVariableException;
@@ -298,7 +299,7 @@ public class SML_Compiler {
 				tokens = line.split(" ");
 				String lineNo = tokens[0];
 				if (!isNumber(lineNo))
-					throw new NotALineException(lineNo);
+					throw new InvalidLineNameException(lineNo);
 
 				addLine(lineNo);
 				data.lineNumber = Integer.parseInt(lineNo);
@@ -408,7 +409,7 @@ public class SML_Compiler {
 					break;
 				case END:
 					if (!blockStack.empty())
-						throw new UnclosedBlockException();
+						throw new UnclosedBlockException(blockStack.pop());
 					break;
 				default:
 					break;
