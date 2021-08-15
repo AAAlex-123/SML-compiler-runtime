@@ -12,8 +12,8 @@ import java.util.Arrays;
 public class Memory implements CodeReader, CodeWriter {
 
 	static {
-		System.out.println("calling System.loadLibary() 8D");
-		System.loadLibrary("Main");
+		// System.out.println("calling System.loadLibary() 8D");
+		// System.loadLibrary("Main");
 	}
 
 	private final int[] data;
