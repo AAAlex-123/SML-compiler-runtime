@@ -463,7 +463,8 @@ public class SML_Compiler {
 			System.out.printf("%02d > ", lineCount);
 			userInput = scanner.nextLine();
 
-			program.append(String.format("%02d %s%n", lineCount, userInput));
+			if (!userInput.isBlank())
+				program.append(String.format("%02d %s%n", lineCount, userInput));
 			++lineCount;
 		}
 	}
