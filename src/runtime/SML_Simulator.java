@@ -26,20 +26,20 @@ import requirement.requirements.Requirements;
 public class SML_Simulator {
 
 	/** Informs the user about the different commands available in the Simulator */
-	private static final String msg = "Usage (parameters in [] are optional):\n"
+	private static final String msg = "\n\nUsage (parameters in [] are optional):\n"
 	        + "       help    [command]\n"
 	        + "   or  compile [options]\n"
 	        + "   or  execute [options]\n"
 	        + "   or  com_exe [options]\n"
 	        + "\n"
 	        + "where <command> is one of:\n"
-	        + "  compile, execute, com_exe, exit, help\n"
+	        + "  'compile', 'execute', 'com_exe', 'exit', 'help' or blank\n"
 	        + "\n"
 	        + "and <options> include:\n"
 	        + "  --input <filename or 'stdin'>\n"
-	        + "      where to load the code for compilation or execution from\n"
+	        + "      where to input the code for compilation or execution from\n"
 	        + "  --output <filename or 'stdout'>\n"
-	        + "      where to store the results of compilation or execution\n"
+	        + "      where to output the results of compilation or execution\n"
 	        + "  -screen\n"
 	        + "      output user-friendly results to stdout as well, independent from --output\n"
 	        + "  -verbose\n"
@@ -140,12 +140,11 @@ public class SML_Simulator {
 
 		String command;
 
-		final Requirements compileReqs = SML_Compiler.getRequirements();
-		final Requirements executeReqs = SML_Executor.getRequirements();
+		Requirements compileReqs, executeReqs;
 
 		do {
-			compileReqs.clear();
-			executeReqs.clear();
+			compileReqs = SML_Compiler.getRequirements();
+			executeReqs = SML_Executor.getRequirements();
 
 			SML_Simulator.prompt();
 
@@ -162,15 +161,19 @@ public class SML_Simulator {
 			final boolean st      = options.get("-st").equals("true");
 
 			// fulfil compilation requirements
-			compileReqs.fulfil("input", input);
-			compileReqs.fulfil("output", output);
+			if (!input.isEmpty())
+				compileReqs.fulfil("input", input);
+			if (!output.isEmpty())
+				compileReqs.fulfil("output", output);
 			compileReqs.fulfil("screen", screen);
 			compileReqs.fulfil("st", st);
 			compileReqs.fulfil("verbose", verbose);
 
 			// fulfil compilation requirements
-			executeReqs.fulfil("input", input);
-			executeReqs.fulfil("output", output);
+			if (!input.isEmpty())
+				executeReqs.fulfil("input", input);
+			if (!output.isEmpty())
+				executeReqs.fulfil("output", output);
 			executeReqs.fulfil("screen", screen);
 			executeReqs.fulfil("verbose", verbose);
 
@@ -184,8 +187,10 @@ public class SML_Simulator {
 				SML_Executor.execute(executeReqs);
 			else if (command.equals("com_exe")) {
 
-				compileReqs.fulfil("output", inter);
-				executeReqs.fulfil("input", inter);
+				if (!inter.isEmpty()) {
+					compileReqs.fulfil("output", inter);
+					executeReqs.fulfil("input", inter);
+				}
 
 				SML_Compiler.compile(compileReqs);
 				SML_Executor.execute(executeReqs);
@@ -204,7 +209,7 @@ public class SML_Simulator {
 	}
 
 	private static void out(String text, Object... args) {
-		System.out.printf("Simulator Info:  %s%n", String.format(text, args));
+		System.out.printf("Simulator Info: %s%n", String.format(text, args));
 	}
 
 	private static void err(String text, Object... args) {
@@ -222,15 +227,19 @@ public class SML_Simulator {
 		final Map<String, String> options = new HashMap<>(6, 1.0f);
 		options.put("_command", "");
 		options.put("_help_for", "");
-		options.put("-screen", "false");
-		options.put("-st", "false");
 		options.put("--input", "");
 		options.put("--output", "");
+		options.put("-screen", "");
+		options.put("-verbose", "");
+		options.put("-st", "");
 
 		options.put("_command", tokens[0]);
 
-		if (tokens.length > 1)
-			options.put("_help_for", tokens[1]);
+		if (tokens[0].equals("help")) {
+			if (tokens.length > 1)
+				options.put("_help_for", tokens[1]);
+			return options;
+		}
 
 		for (int i = 1, size = tokens.length; i < size; ++i) {
 
@@ -240,12 +249,13 @@ public class SML_Simulator {
 				SML_Simulator.err("Error: unknown option: %s", key);
 
 			else if (key.startsWith("--")) {
-				i++;
+
 				options.put(key, tokens[i]);
 			} else if (key.startsWith("-"))
 				options.put(key, "true");
 
-			SML_Simulator.err(
+			else
+				SML_Simulator.err(
 			        "Invalid option: %s. Option must start with either one '-' or two '--' dashes.",
 			        key);
 		}
@@ -259,17 +269,17 @@ public class SML_Simulator {
 
 		else if (command.equals("compile"))
 			SML_Simulator.out("Use this command to compile\n"
-			        + "  Usage: compile [--input <filename or 'stdin'>] [--output <filename or 'stdout'>] [-screen] [-verbose] [-st]"
+			        + "  Usage: compile [--input <filename or 'stdin'>] [--output <filename or 'stdout'>] [-screen] [-verbose] [-st]\n"
 			        + "  No options is equivalent to: compile --input stdin --output out.sml");
 
 		else if (command.equals("execute"))
 			SML_Simulator.out("Use this command to execute\n"
-			        + "  Usage: execute [--input <filename or 'stdin'>] [--output <filename or 'stdout'>] [-screen] [-verbose] "
+			        + "  Usage: execute [--input <filename or 'stdin'>] [--output <filename or 'stdout'>] [-screen] [-verbose] \n"
 			        + "  No options is equivalent to: execute --input out.sml --output res.txt");
 
 		else if (command.equals("com_exe"))
 			SML_Simulator.out("Use this command to compile and execute\n"
-			        + "  Usage: com_exe [--input <filename or 'stdin'>] [--output <filename or 'stdout'>] [-screen] [-verbose] [-st]"
+			        + "  Usage: com_exe [--input <filename or 'stdin'>] [--output <filename or 'stdout'>] [-screen] [-verbose] [-st]\n"
 			        + "  No options is equivalent to: com_exe --input stdin --output res.txt");
 
 		else if (command.equals("exit"))
@@ -278,7 +288,7 @@ public class SML_Simulator {
 
 		else if (command.equals("help"))
 			SML_Simulator.out(
-			        "Use this command to get help on a specific command or for the simulator as a whole\n"
+			        "Use this command to get help for a specific command or for the simulator as a whole\n"
 			                + "  Usage: help [compile|execute|com_exe|exit|help]");
 
 		else
