@@ -246,11 +246,11 @@ public class SML_Simulator {
 			final String key = tokens[i];
 
 			if (!options.containsKey(key))
-				SML_Simulator.err("Error: unknown option: %s", key);
+				SML_Simulator.err("Unknown option: %s", key);
 
 			else if (key.startsWith("--")) {
+				options.put(key, tokens[++i]);
 
-				options.put(key, tokens[i]);
 			} else if (key.startsWith("-"))
 				options.put(key, "true");
 
