@@ -138,18 +138,23 @@ public class SML_Simulator {
 		if (verboseSimulator)
 			SML_Simulator.out(SML_Simulator.msg);
 
-		String command;
+		String command = "";
 
 		Requirements compileReqs, executeReqs;
+		Map<String, String> options;
 
-		do {
+		next_command:
+		while (!command.equals("exit")) {
 			compileReqs = SML_Compiler.getRequirements();
 			executeReqs = SML_Executor.getRequirements();
 
 			SML_Simulator.prompt();
 
 			// get options from next command the user types
-			final Map<String, String> options = SML_Simulator.getNextCommand();
+			options = SML_Simulator.getNextCommand();
+
+			if (options == null)
+				continue next_command;
 
 			// put options into variables
 			command = options.get("_command");
@@ -199,7 +204,7 @@ public class SML_Simulator {
 
 			} else
 				SML_Simulator.err("Unknown command: " + command);
-		} while (!command.equals("exit"));
+		}
 	}
 
 	// --- 3 methods for uniform message printing ---
@@ -219,6 +224,8 @@ public class SML_Simulator {
 	// --- 2 helper methods ---
 
 	private static Map<String, String> getNextCommand() {
+
+		boolean valid = true;
 
 		@SuppressWarnings("resource")
 		final Scanner  scanner = new Scanner(System.in);
@@ -254,13 +261,15 @@ public class SML_Simulator {
 			} else if (key.startsWith("-"))
 				options.put(key, "true");
 
-			else
+			else {
 				SML_Simulator.err(
 			        "Invalid option: %s. Option must start with either one '-' or two '--' dashes.",
 			        key);
+				valid = false;
+			}
 		}
 
-		return options;
+		return valid ? options : null;
 	}
 
 	private static void printHelpForCommand(String command) {

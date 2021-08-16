@@ -192,6 +192,7 @@ public class SML_Executor {
 			try {
 				Instruction.of(SML_Executor.operationCode, SML_Executor.operand).execute();
 			} catch (final NumberFormatException e) {
+				// This assumes that the message of the exception is the number that isn't an integer
 				SML_Executor.err("%s is not a valid integer", e.getMessage());
 			} catch (InvalidInstructionException | ArithmeticException e) {
 				SML_Executor.err("%s", e.getMessage());
