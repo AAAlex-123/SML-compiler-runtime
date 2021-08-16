@@ -28,7 +28,14 @@ public enum Instruction {
 			final Scanner scanner = new Scanner(System.in);
 
 			SML_Executor.prompt();
-			final int input = Integer.parseInt(scanner.nextLine(), 16);
+			final String input0 = scanner.nextLine();
+			final int    input;
+
+			try {
+				input = Integer.parseInt(input0, 16);
+			} catch (NumberFormatException e) {
+				throw new NumberFormatException(input0);
+			}
 
 			SML_Executor.write(operand, input);
 		}
