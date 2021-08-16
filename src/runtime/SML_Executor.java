@@ -172,6 +172,7 @@ public class SML_Executor {
 			SML_Executor.out("Execution ended");
 
 			if (screen || output.equals("stdout"))
+				SML_Executor.out("Executor State:");
 				SML_Executor.writeResultsToStdout();
 			if (!output.equals("stdout")) {
 				SML_Executor.out("Writing results to file: %s", output);
@@ -249,7 +250,7 @@ public class SML_Executor {
 	}
 
 	private static void writeResultsToStdout() {
-		SML_Executor.out("Executor State:%n%s", SML_Executor.getDumpString());
+		SML_Executor.out("%s", SML_Executor.getDumpString());
 	}
 
 	private static void writeResultsToFile(File file) {

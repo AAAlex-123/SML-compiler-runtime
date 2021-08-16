@@ -74,7 +74,7 @@ public enum Instruction {
 		@Override
 		protected void execute() {
 			SML_Executor.output();
-			SML_Executor.message("%04x", SML_Executor.read(operand));
+			SML_Executor.message("%04x%n", SML_Executor.read(operand));
 		}
 	},
 

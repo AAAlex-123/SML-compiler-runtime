@@ -61,6 +61,15 @@ enum Statement {
 			// generate postfix
 			final String        infix        = line.split("=")[1];
 			final List<Token>   postfix      = InfixToPostfix.convertToPostfix(infix);
+
+			// declare constants that weren't interpreted as constants (e.g. 2+3)
+			for (Token token : postfix) {
+				final String symbol = token.value;
+				if (symbol.matches("\\d+"))
+					if (!SML_Compiler.constantDeclared(symbol))
+						SML_Compiler.declareConstant(symbol, INT.identifier);
+			}
+
 			final SymbolTable   symbolTable  = SML_Compiler.getSymbolTable();
 			final List<Integer> instructions = PostfixEvaluator.evaluatePostfix(postfix,
 			        symbolTable);
@@ -101,7 +110,7 @@ enum Statement {
 			final String[] tokens = line.split(" ");
 
 			final int location   = SML_Compiler.addInstruction(Instruction.BRANCH.opcode());
-			final int lineToJump = Integer.parseInt(tokens[2]);
+			final String lineToJump = tokens[2];
 
 			SML_Compiler.setLineToJump(location, lineToJump);
 		}
@@ -116,7 +125,7 @@ enum Statement {
 			String    op1, op2;
 			int       loc1, loc2;
 			Condition condition;
-			int       targetLine;
+			String    targetLine;
 
 			op1 = tokens[2];
 			loc1 = SML_Compiler.getSymbol(op1).location;
@@ -126,7 +135,7 @@ enum Statement {
 			op2 = tokens[4];
 			loc2 = SML_Compiler.getSymbol(op2).location;
 
-			targetLine = Integer.parseInt(tokens[6]);
+			targetLine = tokens[6];
 
 			int location;
 			switch (condition) {

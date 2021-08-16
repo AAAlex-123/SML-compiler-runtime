@@ -2,6 +2,7 @@ package compiler;
 
 import static compiler.Statement.COMMENT;
 import static compiler.Statement.INT;
+import static compiler.Statement.LET;
 import static compiler.postfix.Token.ADD;
 import static compiler.postfix.Token.DIV;
 import static compiler.postfix.Token.MOD;
@@ -67,12 +68,12 @@ import runtime.Instruction;
  */
 public class SML_Compiler {
 
-	private static final SymbolTable           symbolTable = new SymbolTable();
-	private static final CodeWriter            memory      = new Memory(256);
-	private static final StringBuilder         program     = new StringBuilder();
-	private static final Map<Integer, Integer> ifgFlags    = new HashMap<>();
-	private static final Stack<Block>          blockStack  = new Stack<>();
-	private static final Collection<String>    keywords    = new HashSet<>();
+	private static final SymbolTable          symbolTable = new SymbolTable();
+	private static final CodeWriter           memory      = new Memory(256);
+	private static final StringBuilder        program     = new StringBuilder();
+	private static final Map<Integer, String> ifgFlags    = new HashMap<>();
+	private static final Stack<Block>         blockStack  = new Stack<>();
+	private static final Collection<String>   keywords    = new HashSet<>();
 
 	static {
 		keywords.addAll(Arrays.asList(ADD.value, SUB.value, MUL.value, DIV.value, POW.value,
@@ -180,13 +181,14 @@ public class SML_Compiler {
 		CompilationData data = new CompilationData();
 
 
-		String  input  = (String) requirements.getValue("input");
-		String  output = (String) requirements.getValue("output");
-		boolean screen = (boolean) requirements.getValue("screen");
-		boolean st     = (boolean) requirements.getValue("st");
+		String  input   = (String) requirements.getValue("input");
+		String  output  = (String) requirements.getValue("output");
+		boolean screen  = (boolean) requirements.getValue("screen");
+		boolean st      = (boolean) requirements.getValue("st");
 		boolean verbose = (boolean) requirements.getValue("verbose");
 
 		data.inputFileName = input.equals("stdin") ? "<stdin>" : input;
+		data.success = true;
 
 		if (!verbose) {
 
@@ -204,7 +206,6 @@ public class SML_Compiler {
 				if (output.equals("stdout")) {
 					out("The following memory dump is suitable for execution.%n-------");
 					writeResultsToStdout(true);
-					out("-------%n");
 				} else
 					writeResultsToFile(new File(output));
 
@@ -243,18 +244,16 @@ public class SML_Compiler {
 
 			if (data.success) {
 				if (output.equals("stdout")) {
-					out("The following memory dump is suitable for execution.%n-------");
+					out("Generated machine code (suitable for execution):");
 					writeResultsToStdout(true);
-					out("-------%n");
 				} else {
 					out("Writing generated machine code to file: %s", output);
 					writeResultsToFile(new File(output));
 				}
 
 				if (screen) {
-					out("The following memory dump is NOT suitable for execution.%n-------");
+					out("Generated machine code (NOT suitable for execution):");
 					writeResultsToStdout(false);
-					out("-------%n");
 				}
 			}
 
@@ -365,16 +364,15 @@ public class SML_Compiler {
 							// dismiss keywords
 
 						} else {
-							throw new RuntimeException("the fuck how did we get here");
+							if (!statement.equals(LET))
+								throw new RuntimeException("the fuck how did we get here");
 						}
 					}
 				}
 
 				/*
-				 * at this point:
-				 *   - all variables are declared
-				 *   - all constants are set
-				 *   - all lines exist
+				 * at this point: - all variables are declared - all constants are set - all
+				 * lines exist
 				 */
 
 				// statement-specific checks
@@ -428,19 +426,18 @@ public class SML_Compiler {
 	} // end of pass1
 
 	private static void pass2(CompilationData data) {
-		for (Entry<Integer, Integer> entry : ifgFlags.entrySet()) {
+		for (Entry<Integer, String> entry : ifgFlags.entrySet()) {
 
-			int instructionAddress = entry.getKey();
-			int lineToJump         = entry.getValue();
+			int    instructionAddress = entry.getKey();
+			String lineToJump         = entry.getValue();
 
 			try {
-				String var = String.valueOf(instructionAddress);
-				data.variable = var;
+				data.variable = lineToJump;
 
-				if (!lineDeclared(var))
-					throw new NotALineException(String.valueOf(lineToJump));
+				if (!lineDeclared(lineToJump))
+					throw new NotALineException(lineToJump);
 
-				int location    = getLine(String.valueOf(lineToJump)).location;
+				int location    = getLine(lineToJump).location;
 				int instruction = memory.read(instructionAddress);
 				memory.write(instructionAddress, instruction + location);
 
@@ -466,7 +463,8 @@ public class SML_Compiler {
 			System.out.printf("%02d > ", lineCount);
 			userInput = scanner.nextLine();
 
-			program.append(String.format("%02d %s%n", lineCount, userInput));
+			if (!userInput.isBlank())
+				program.append(String.format("%02d %s%n", lineCount, userInput));
 			++lineCount;
 		}
 	}
@@ -487,8 +485,7 @@ public class SML_Compiler {
 	}
 
 	private static void writeResultsToStdout(boolean suitableForExecution) {
-		out("Generated machine code:%n%s",
-		        suitableForExecution ? memory.list() : memory.listShort());
+		out("%n%s", suitableForExecution ? memory.list() : memory.listShort());
 	}
 
 	private static void writeResultsToFile(File file) {
@@ -730,7 +727,7 @@ public class SML_Compiler {
 	 * @param location   the address of the instruction.
 	 * @param lineToJump the line to jump
 	 */
-	static void setLineToJump(int location, int lineToJump) {
+	static void setLineToJump(int location, String lineToJump) {
 		ifgFlags.put(location, lineToJump);
 	}
 
