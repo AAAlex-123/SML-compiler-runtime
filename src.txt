@@ -8,7 +8,7 @@
 
 16 goto 24
 20 noop
-24 ifg a < 10 goto 4
+24 ifg a < 10 goto 04
 
 26 // number guessing game, 0=too high, 1=too low
 28 while b != c
