@@ -33,7 +33,7 @@ import runtime.exceptions.InvalidInstructionException;
  */
 public class SML_Executor {
 
-	private static final CodeReader memory = new Memory(256);
+	private final CodeReader memory;
 
 	/**
 	 * The Executor's accumulator, used to load a single value from memory, operate
@@ -41,14 +41,18 @@ public class SML_Executor {
 	 * of multiple registers or directly operating on memory) to greatly simplify
 	 * compilation and execution.
 	 */
-	private static int     accumulator;
-	private static int     instructionRegister;
-	private static int     operationCode;
-	private static int     operand;
-	private static boolean halt;
+	private int accumulator;
+	private int instructionRegister;
+	private int operationCode;
+	private int operand;
+	private boolean halt;
 
 	/* Don't let anyone instantiate this class */
-	private SML_Executor() {}
+	private SML_Executor() {
+		memory = new Memory(256);
+		accumulator = 0;
+		halt = false;
+	}
 
 	/**
 	 * Uses the command line arguments to specify the parameters necessary to
@@ -72,8 +76,8 @@ public class SML_Executor {
 				reqs.fulfil(args[i].substring(1), true);
 			else
 				SML_Executor.err(
-				        "Invalid parameter: %s. Parameters must start with either one '-' or two '--' dashes.",
-				        args[i]);
+						"Invalid parameter: %s. Parameters must start with either one '-' or two '--' dashes.",
+						args[i]);
 
 		SML_Executor.execute(reqs);
 	}
@@ -128,7 +132,7 @@ public class SML_Executor {
 			return;
 		}
 
-		SML_Executor.reset();
+		SML_Executor executor = new SML_Executor();
 
 		final String  input   = (String) requirements.getValue("input");
 		final String  output  = (String) requirements.getValue("output");
@@ -140,16 +144,16 @@ public class SML_Executor {
 			// === SILENT EXECUTION ===
 
 			if (input.equals("stdin"))
-				SML_Executor.loadToMemoryFromStdin();
+				executor.loadToMemoryFromStdin();
 			else
-				SML_Executor.loadToMemoryFromFile(new File(input));
+				executor.loadToMemoryFromFile(new File(input));
 
-			SML_Executor.executeInstructionsFromMemory();
+			executor.executeInstructionsFromMemory();
 
 			if (screen || output.equals("stdout"))
-				SML_Executor.writeResultsToStdout();
+				executor.writeResultsToStdout();
 			if (!output.equals("stdout"))
-				SML_Executor.writeResultsToFile(new File(output));
+				executor.writeResultsToFile(new File(output));
 
 		} else {
 
@@ -160,49 +164,49 @@ public class SML_Executor {
 				SML_Executor.out("The memory address for each instruction will be printed");
 				SML_Executor.out("All numbers are interpreted as hex");
 				SML_Executor.out("Type '-ffff' to stop inputting code");
-				SML_Executor.loadToMemoryFromStdin();
+				executor.loadToMemoryFromStdin();
 			} else {
 				SML_Executor.out("Loading program from file: %s", input);
-				SML_Executor.loadToMemoryFromFile(new File(input));
+				executor.loadToMemoryFromFile(new File(input));
 			}
 			SML_Executor.out("Progarm loading completed");
 
 			SML_Executor.out("Execution started");
-			SML_Executor.executeInstructionsFromMemory();
+			executor.executeInstructionsFromMemory();
 			SML_Executor.out("Execution ended");
 
 			if (screen || output.equals("stdout"))
 				SML_Executor.out("Executor State:");
-				SML_Executor.writeResultsToStdout();
+			executor.writeResultsToStdout();
 			if (!output.equals("stdout")) {
 				SML_Executor.out("Writing results to file: %s", output);
-				SML_Executor.writeResultsToFile(new File(output));
+				executor.writeResultsToFile(new File(output));
 			}
 		}
 	}
 
-	private static void executeInstructionsFromMemory() {
-		SML_Executor.memory.initialiseForExecution();
+	private void executeInstructionsFromMemory() {
+		memory.initialiseForExecution();
 
-		while (!SML_Executor.halt) {
-			SML_Executor.instructionRegister = SML_Executor.memory.fetchInstruction();
-			SML_Executor.operationCode = SML_Executor.instructionRegister / 0x100;
-			SML_Executor.operand = SML_Executor.instructionRegister % 0x100;
+		while (!halt) {
+			instructionRegister = memory.fetchInstruction();
+			operationCode = instructionRegister / 0x100;
+			operand = instructionRegister % 0x100;
 
 			try {
-				Instruction.of(SML_Executor.operationCode, SML_Executor.operand).execute();
+				Instruction.of(operationCode, operand).execute(this);
 			} catch (final NumberFormatException e) {
 				// This assumes that the message of the exception is the number that isn't an integer
-				SML_Executor.err("%s is not a valid integer", e.getMessage());
+				SML_Executor.err("%s is not a valid base-16 integer", e.getMessage());
 			} catch (InvalidInstructionException | ArithmeticException e) {
 				SML_Executor.err("%s", e.getMessage());
 			}
 		}
 	}
 
-	// --- 5 methods for input, output and reset ---
+	// --- 4 methods for input, output ---
 
-	private static void loadToMemoryFromStdin() {
+	private void loadToMemoryFromStdin() {
 		@SuppressWarnings("resource")
 		final Scanner scanner = new Scanner(System.in);
 
@@ -227,46 +231,41 @@ public class SML_Executor {
 					SML_Executor.err("%s is not a valid integer", userInput);
 				}
 			}
-			SML_Executor.write(lineCount, input);
+			write(lineCount, input);
 			++lineCount;
 		}
 	}
 
-	private static void loadToMemoryFromFile(File file) {
+	private void loadToMemoryFromFile(File file) {
+		String line = "";
 		try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
 			int lineCount = 0;
 
-			for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-				SML_Executor.write(lineCount, Integer.parseInt(line, 16));
+			for (line = reader.readLine(); line != null; line = reader.readLine()) {
+				write(lineCount, Integer.parseInt(line, 16));
 				++lineCount;
 			}
 
 		} catch (final FileNotFoundException e) {
 			SML_Executor.err("Couldn't find file %s", file);
 		} catch (final NumberFormatException e) {
-			SML_Executor.err("%s", e.getMessage());
+			SML_Executor.err("%s is not a valid base-16 integer", line);
 		} catch (final IOException e) {
 			SML_Executor.err("Unexpected error while reading from file %s", file);
 		}
 	}
 
-	private static void writeResultsToStdout() {
-		SML_Executor.out("%s", SML_Executor.getDumpString());
+	private void writeResultsToStdout() {
+		SML_Executor.out("%s", getDumpString());
 	}
 
-	private static void writeResultsToFile(File file) {
+	private void writeResultsToFile(File file) {
 		try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-			writer.write(SML_Executor.getDumpString());
+			writer.write(getDumpString());
 
 		} catch (final IOException e) {
 			SML_Executor.err("Unexpected error while writing to file %s", file);
 		}
-	}
-
-	private static void reset() {
-		SML_Executor.memory.clear();
-		SML_Executor.accumulator = 0;
-		SML_Executor.halt = false;
 	}
 
 	// --- 5 method for uniform message printing ---
@@ -302,8 +301,8 @@ public class SML_Executor {
 	// --- 7 memory wrapper-delegate methods
 
 	/** Halts execution */
-	static void halt() {
-		SML_Executor.halt = true;
+	void halt() {
+		halt = true;
 	}
 
 	/**
@@ -311,8 +310,8 @@ public class SML_Executor {
 	 *
 	 * @return the accumulator
 	 */
-	static int getAccumulator() {
-		return SML_Executor.accumulator;
+	int getAccumulator() {
+		return accumulator;
 	}
 
 	/**
@@ -320,8 +319,8 @@ public class SML_Executor {
 	 *
 	 * @param value the new value for the accumulator
 	 */
-	static void setAccumulator(int value) {
-		SML_Executor.accumulator = value;
+	void setAccumulator(int value) {
+		accumulator = value;
 	}
 
 	/**
@@ -333,8 +332,8 @@ public class SML_Executor {
 	 *
 	 * @see memory.RAM#read(int)
 	 */
-	static int read(int address) {
-		return SML_Executor.memory.read(address);
+	int read(int address) {
+		return memory.read(address);
 	}
 
 	/**
@@ -346,8 +345,8 @@ public class SML_Executor {
 	 *
 	 * @see memory.RAM#readChars(int)
 	 */
-	static char[] readChars(int address) {
-		return SML_Executor.memory.readChars(address);
+	char[] readChars(int address) {
+		return memory.readChars(address);
 	}
 
 	/**
@@ -358,8 +357,8 @@ public class SML_Executor {
 	 *
 	 * @see memory.RAM#write(int, int)
 	 */
-	static void write(int address, int value) {
-		SML_Executor.memory.write(address, value);
+	void write(int address, int value) {
+		memory.write(address, value);
 	}
 
 	/**
@@ -370,8 +369,8 @@ public class SML_Executor {
 	 *
 	 * @see memory.RAM#writeChars(int, char[])
 	 */
-	static void writeChars(int address, char[] values) {
-		SML_Executor.memory.writeChars(address, values);
+	void writeChars(int address, char[] values) {
+		memory.writeChars(address, values);
 	}
 
 	/**
@@ -381,8 +380,8 @@ public class SML_Executor {
 	 *
 	 * @see memory.CodeReader#setInstructionPointer(int)
 	 */
-	static void setInstructionPointer(int address) {
-		SML_Executor.memory.setInstructionPointer(address);
+	void setInstructionPointer(int address) {
+		memory.setInstructionPointer(address);
 	}
 
 	/**
@@ -392,22 +391,22 @@ public class SML_Executor {
 	 *
 	 * @see memory.CodeReader#dump()
 	 */
-	static String dump() {
-		return SML_Executor.memory.dump();
+	String dump() {
+		return memory.dump();
 	}
 
 	// d u m p
 
-	private static String getDumpString() {
+	private String getDumpString() {
 		final StringBuilder sb = new StringBuilder();
 		sb.append("REGISTERES:")
-		        .append("\naccumulator:            " + SML_Executor.accumulator)
-		        .append("\ninstruction counter:    " + SML_Executor.memory.getInstructionPointer())
-		        .append("\ninstruction register:   " + SML_Executor.instructionRegister)
-		        .append("\noperation code:         " + SML_Executor.operationCode)
-		        .append("\noperand:                " + SML_Executor.operand)
-		        .append(String.format("\n\n\nMEMORY:\n"))
-		        .append(SML_Executor.dump());
+		.append("\naccumulator:            " + accumulator)
+		.append("\ninstruction counter:    " + memory.getInstructionPointer())
+		.append("\ninstruction register:   " + instructionRegister)
+		.append("\noperation code:         " + operationCode)
+		.append("\noperand:                " + operand)
+		.append(String.format("\n\n\nMEMORY:\n"))
+		.append(dump());
 
 		return sb.toString();
 	}
