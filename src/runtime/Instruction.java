@@ -7,7 +7,7 @@ import java.util.Scanner;
 import runtime.exceptions.InvalidInstructionException;
 
 /**
- * An Instruction that is executed in the context of a SML_Executor.
+ * An Instruction that is executed in the context of an {@link SML_Executor}.
  * Instructions are identified by their {@link Instruction#operationCode
  * operation code} and also use an {@link Instruction#operand operand} as the
  * address of memory they will operate on.
@@ -23,7 +23,7 @@ public enum Instruction {
 	 */
 	READ_INT(0x10) {
 		@Override
-		protected void execute() {
+		protected void execute(SML_Executor executor) {
 			@SuppressWarnings("resource")
 			final Scanner scanner = new Scanner(System.in);
 
@@ -37,7 +37,7 @@ public enum Instruction {
 				throw new NumberFormatException(input0);
 			}
 
-			SML_Executor.write(operand, input);
+			executor.write(operand, input);
 		}
 	},
 
@@ -48,14 +48,14 @@ public enum Instruction {
 	 */
 	READ_STRING(0x11) {
 		@Override
-		protected void execute() {
+		protected void execute(SML_Executor executor) {
 			@SuppressWarnings("resource")
 			final Scanner scanner = new Scanner(System.in);
 
 			SML_Executor.prompt();
 			final char[] array = scanner.nextLine().toCharArray();
 
-			SML_Executor.writeChars(operand, array);
+			executor.writeChars(operand, array);
 		}
 	},
 
@@ -66,9 +66,9 @@ public enum Instruction {
 	 */
 	WRITE(0x12) {
 		@Override
-		protected void execute() {
+		protected void execute(SML_Executor executor) {
 			SML_Executor.output();
-			SML_Executor.message("%04x", SML_Executor.read(operand));
+			SML_Executor.message("%04x", executor.read(operand));
 		}
 	},
 
@@ -79,9 +79,9 @@ public enum Instruction {
 	 */
 	WRITE_NL(0x13) {
 		@Override
-		protected void execute() {
+		protected void execute(SML_Executor executor) {
 			SML_Executor.output();
-			SML_Executor.message("%04x%n", SML_Executor.read(operand));
+			SML_Executor.message("%04x%n", executor.read(operand));
 		}
 	},
 
@@ -92,8 +92,8 @@ public enum Instruction {
 	 */
 	WRITE_STRING(0x14) {
 		@Override
-		protected void execute() {
-			final char[] chars = SML_Executor.readChars(operand);
+		protected void execute(SML_Executor executor) {
+			final char[] chars = executor.readChars(operand);
 
 			SML_Executor.output();
 			for (final char c : chars)
@@ -108,8 +108,8 @@ public enum Instruction {
 	 */
 	WRITE_STRING_NL(0x15) {
 		@Override
-		protected void execute() {
-			final char[] chars = SML_Executor.readChars(operand);
+		protected void execute(SML_Executor executor) {
+			final char[] chars = executor.readChars(operand);
 
 			SML_Executor.output();
 			for (final char c : chars)
@@ -125,8 +125,8 @@ public enum Instruction {
 	 */
 	LOAD(0x20) {
 		@Override
-		protected void execute() {
-			SML_Executor.setAccumulator(SML_Executor.read(operand));
+		protected void execute(SML_Executor executor) {
+			executor.setAccumulator(executor.read(operand));
 		}
 	},
 
@@ -137,8 +137,8 @@ public enum Instruction {
 	 */
 	STORE(0x21) {
 		@Override
-		protected void execute() {
-			SML_Executor.write(operand, SML_Executor.getAccumulator());
+		protected void execute(SML_Executor executor) {
+			executor.write(operand, executor.getAccumulator());
 		}
 	},
 
@@ -149,9 +149,9 @@ public enum Instruction {
 	 */
 	ADD(0x30) {
 		@Override
-		protected void execute() {
-			final int sum = SML_Executor.getAccumulator() + SML_Executor.read(operand);
-			SML_Executor.setAccumulator(sum);
+		protected void execute(SML_Executor executor) {
+			final int sum = executor.getAccumulator() + executor.read(operand);
+			executor.setAccumulator(sum);
 		}
 	},
 
@@ -162,9 +162,9 @@ public enum Instruction {
 	 */
 	SUBTRACT(0x31) {
 		@Override
-		protected void execute() {
-			final int difference = SML_Executor.getAccumulator() - SML_Executor.read(operand);
-			SML_Executor.setAccumulator(difference);
+		protected void execute(SML_Executor executor) {
+			final int difference = executor.getAccumulator() - executor.read(operand);
+			executor.setAccumulator(difference);
 		}
 	},
 
@@ -175,13 +175,13 @@ public enum Instruction {
 	 */
 	DIVIDE(0x32) {
 		@Override
-		protected void execute() {
-			final int divisor = SML_Executor.read(operand);
+		protected void execute(SML_Executor executor) {
+			final int divisor = executor.read(operand);
 			if (divisor == 0)
 				throw new ArithmeticException("Division By 0");
 
-			final int quotient = SML_Executor.getAccumulator() / divisor;
-			SML_Executor.setAccumulator(quotient);
+			final int quotient = executor.getAccumulator() / divisor;
+			executor.setAccumulator(quotient);
 		}
 	},
 
@@ -193,9 +193,9 @@ public enum Instruction {
 	 */
 	MULTIPLY(0x33) {
 		@Override
-		protected void execute() {
-			final int product = SML_Executor.getAccumulator() * SML_Executor.read(operand);
-			SML_Executor.setAccumulator(product);
+		protected void execute(SML_Executor executor) {
+			final int product = executor.getAccumulator() * executor.read(operand);
+			executor.setAccumulator(product);
 		}
 	},
 
@@ -207,13 +207,13 @@ public enum Instruction {
 	 */
 	MOD(0x34) {
 		@Override
-		protected void execute() {
-			final int divisor = SML_Executor.read(operand);
+		protected void execute(SML_Executor executor) {
+			final int divisor = executor.read(operand);
 			if (divisor == 0)
 				throw new ArithmeticException("Division By 0");
 
-			final int remainder = SML_Executor.getAccumulator() % divisor;
-			SML_Executor.setAccumulator(remainder);
+			final int remainder = executor.getAccumulator() % divisor;
+			executor.setAccumulator(remainder);
 		}
 	},
 
@@ -225,10 +225,9 @@ public enum Instruction {
 	 */
 	POW(0x35) {
 		@Override
-		protected void execute() {
-			final double power = Math.pow(SML_Executor.getAccumulator(),
-			        SML_Executor.read(operand));
-			SML_Executor.setAccumulator((int) power);
+		protected void execute(SML_Executor executor) {
+			final double power = Math.pow(executor.getAccumulator(), executor.read(operand));
+			executor.setAccumulator((int) power);
 		}
 	},
 
@@ -239,8 +238,8 @@ public enum Instruction {
 	 */
 	BRANCH(0x40) {
 		@Override
-		protected void execute() {
-			SML_Executor.setInstructionPointer(operand);
+		protected void execute(SML_Executor executor) {
+			executor.setInstructionPointer(operand);
 		}
 	},
 
@@ -251,9 +250,9 @@ public enum Instruction {
 	 */
 	BRANCHNEG(0x41) {
 		@Override
-		protected void execute() {
-			if (SML_Executor.getAccumulator() < 0)
-				SML_Executor.setInstructionPointer(operand);
+		protected void execute(SML_Executor executor) {
+			if (executor.getAccumulator() < 0)
+				executor.setInstructionPointer(operand);
 		}
 	},
 
@@ -264,9 +263,9 @@ public enum Instruction {
 	 */
 	BRANCHZERO(0x42) {
 		@Override
-		protected void execute() {
-			if (SML_Executor.getAccumulator() == 0)
-				SML_Executor.setInstructionPointer(operand);
+		protected void execute(SML_Executor executor) {
+			if (executor.getAccumulator() == 0)
+				executor.setInstructionPointer(operand);
 		}
 	},
 
@@ -277,8 +276,8 @@ public enum Instruction {
 	 */
 	HALT(0x43) {
 		@Override
-		protected void execute() {
-			SML_Executor.halt();
+		protected void execute(SML_Executor executor) {
+			executor.halt();
 		}
 	},
 
@@ -289,8 +288,8 @@ public enum Instruction {
 	 */
 	DUMP(0xf0) {
 		@Override
-		protected void execute() {
-			SML_Executor.dump();
+		protected void execute(SML_Executor executor) {
+			executor.dump();
 		}
 	},
 
@@ -301,7 +300,7 @@ public enum Instruction {
 	 */
 	NOOP(0xf1) {
 		@Override
-		protected void execute() {
+		protected void execute(SML_Executor executor) {
 
 		}
 	};
@@ -320,8 +319,13 @@ public enum Instruction {
 			Instruction.map.put(instruction.operationCode, instruction);
 	}
 
-	/** Executes the Instruction */
-	protected abstract void execute();
+	/**
+	 * Executes the {@code Instruction}, altering the state of the
+	 * {@code SML_Executor}.
+	 *
+	 * @param executor the SML_Executor
+	 */
+	protected abstract void execute(SML_Executor executor);
 
 	/**
 	 * Returns the Instruction identified by the {@link Instruction#operationCode
@@ -337,7 +341,7 @@ public enum Instruction {
 	 *                                     correspond to an Instruction
 	 */
 	public static Instruction of(int operationCode, int operand)
-	        throws InvalidInstructionException {
+			throws InvalidInstructionException {
 
 		final Instruction instruction = Instruction.map.get(operationCode);
 		if (instruction == null)
