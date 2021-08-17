@@ -211,14 +211,17 @@ public class SML_Simulator {
 
 	private static void prompt() {
 		System.out.print("=> ");
+		System.out.flush();
 	}
 
 	private static void out(String text, Object... args) {
 		System.out.printf("Simulator Info: %s%n", String.format(text, args));
+		System.out.flush();
 	}
 
 	private static void err(String text, Object... args) {
 		System.err.printf("Simulator Error: %s%n", String.format(text, args));
+		System.err.flush();
 	}
 
 	// --- 2 helper methods ---
@@ -252,19 +255,20 @@ public class SML_Simulator {
 
 			final String key = tokens[i];
 
-			if (!options.containsKey(key))
+			if (!options.containsKey(key)) {
 				SML_Simulator.err("Unknown option: %s", key);
+				valid = false;
 
-			else if (key.startsWith("--")) {
+			} else if (key.startsWith("--")) {
 				options.put(key, tokens[++i]);
 
-			} else if (key.startsWith("-"))
+			} else if (key.startsWith("-")) {
 				options.put(key, "true");
 
-			else {
+			} else {
 				SML_Simulator.err(
-			        "Invalid option: %s. Option must start with either one '-' or two '--' dashes.",
-			        key);
+						"Invalid option: %s. Option must start with either one '-' or two '--' dashes.",
+						key);
 				valid = false;
 			}
 		}
