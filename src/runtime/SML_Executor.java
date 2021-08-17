@@ -188,19 +188,19 @@ public class SML_Executor {
 	private void executeInstructionsFromMemory() {
 		memory.initialiseForExecution();
 
-		while (!halt) {
-			instructionRegister = memory.fetchInstruction();
-			operationCode = instructionRegister / 0x100;
-			operand = instructionRegister % 0x100;
+		try {
+			while (!halt) {
+				instructionRegister = memory.fetchInstruction();
+				operationCode = instructionRegister / 0x100;
+				operand = instructionRegister % 0x100;
 
-			try {
 				Instruction.of(operationCode, operand).execute(this);
-			} catch (final NumberFormatException e) {
-				// This assumes that the message of the exception is the number that isn't an integer
-				SML_Executor.err("%s is not a valid base-16 integer", e.getMessage());
-			} catch (InvalidInstructionException | ArithmeticException e) {
-				SML_Executor.err("%s", e.getMessage());
 			}
+		} catch (final NumberFormatException e) {
+			// This assumes that the exception's message is the number that isn't an integer
+			SML_Executor.err("'%s' is not a valid base-16 integer", e.getMessage());
+		} catch (InvalidInstructionException | ArithmeticException e) {
+			SML_Executor.err("%s", e.getMessage());
 		}
 	}
 
@@ -249,7 +249,7 @@ public class SML_Executor {
 		} catch (final FileNotFoundException e) {
 			SML_Executor.err("Couldn't find file %s", file);
 		} catch (final NumberFormatException e) {
-			SML_Executor.err("%s is not a valid base-16 integer", line);
+			SML_Executor.err("'%s' is not a valid base-16 integer", line);
 		} catch (final IOException e) {
 			SML_Executor.err("Unexpected error while reading from file %s", file);
 		}
@@ -272,10 +272,12 @@ public class SML_Executor {
 
 	private static void out(String text, Object... args) {
 		System.out.printf("Runtime Info:  %s%n", String.format(text, args));
+		System.out.flush();
 	}
 
 	private static void err(String text, Object... args) {
 		System.err.printf("Runtime Error: %s%n", String.format(text, args));
+		System.err.flush();
 	}
 
 	/**
