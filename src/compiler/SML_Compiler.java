@@ -68,21 +68,21 @@ import runtime.Instruction;
  */
 public class SML_Compiler {
 
-	private static final SymbolTable          symbolTable = new SymbolTable();
-	private static final CodeWriter           memory      = new Memory(256);
-	private static final StringBuilder        program     = new StringBuilder();
-	private static final Map<Integer, String> ifgFlags    = new HashMap<>();
-	private static final Stack<Block>         blockStack  = new Stack<>();
-	private static final Collection<String>   keywords    = new HashSet<>();
+	private static final Collection<String> keywords = new HashSet<>();
 
 	static {
-		keywords.addAll(Arrays.asList(ADD.value, SUB.value, MUL.value, DIV.value, POW.value,
-		        MOD.value, "="));
+		keywords.addAll(Arrays.asList(ADD.value, SUB.value, MUL.value, DIV.value, POW.value, MOD.value, "="));
 		for (Statement s : Statement.values())
 			keywords.add(s.identifier);
 		for (Condition s : Condition.values())
 			keywords.add(s.value);
 	}
+
+	private final SymbolTable          symbolTable;
+	private final CodeWriter           memory;
+	private final StringBuilder        program;
+	private final Map<Integer, String> ifgFlags;
+	private final Stack<Block>         blockStack;
 
 	private static class CompilationData {
 		public String  inputFileName;
@@ -93,7 +93,13 @@ public class SML_Compiler {
 	}
 
 	/* Don't let anyone instantiate this class */
-	private SML_Compiler() {}
+	private SML_Compiler() {
+		symbolTable = new SymbolTable();
+		memory      = new Memory(256);
+		program     = new StringBuilder();
+		ifgFlags    = new HashMap<>();
+		blockStack  = new Stack<>();
+	}
 
 	/**
 	 * Uses the command line arguments to specify the parameters necessary to
@@ -117,7 +123,7 @@ public class SML_Compiler {
 				reqs.fulfil(args[i].substring(1), true);
 			else
 				err("Invalid parameter: %s. Parameters must start with either one '-' or two '--' dashes.",
-				        args[i]);
+						args[i]);
 		}
 
 		compile(reqs);
@@ -176,7 +182,7 @@ public class SML_Compiler {
 			return;
 		}
 
-		reset();
+		SML_Compiler compiler = new SML_Compiler();
 
 		CompilationData data = new CompilationData();
 
@@ -195,29 +201,29 @@ public class SML_Compiler {
 			// === SILENT COMPILATION ===
 
 			if (input.equals("stdin"))
-				loadProgramFromStdin();
+				compiler.loadProgramFromStdin();
 			else
-				loadProgramFromFile(new File(input));
+				compiler.loadProgramFromFile(new File(input));
 
-			pass1(data);
-			pass2(data);
+			compiler.pass1(data);
+			compiler.pass2(data);
 
 			if (data.success) {
 				if (output.equals("stdout")) {
 					out("The following memory dump is suitable for execution.%n-------");
-					writeResultsToStdout(true);
+					compiler.writeResultsToStdout(true);
 				} else
-					writeResultsToFile(new File(output));
+					compiler.writeResultsToFile(new File(output));
 
 				if (screen) {
 					out("The following memory dump is NOT suitable for execution.%n-------");
-					writeResultsToStdout(false);
+					compiler.writeResultsToStdout(false);
 					out("-------%n");
 				}
 			}
 
 			if (st)
-				out("Symbol Table:%n%s", symbolTable);
+				out("Symbol Table:%n%s", compiler.symbolTable);
 
 		} else {
 
@@ -227,38 +233,38 @@ public class SML_Compiler {
 				out("Loading program from Standard Input");
 				out("The line number for each statement will be printed");
 				out("Type 'end' to stop inputting code");
-				loadProgramFromStdin();
+				compiler.loadProgramFromStdin();
 			} else {
 				out("Loading program from file: %s", input);
-				loadProgramFromFile(new File(input));
+				compiler.loadProgramFromFile(new File(input));
 			}
 			out("Progarm loading completed");
 
 			out("Compilation started");
-			pass1(data);
+			compiler.pass1(data);
 
 			out("Completing goto instructions");
-			pass2(data);
+			compiler.pass2(data);
 
 			out("Compilation ended");
 
 			if (data.success) {
 				if (output.equals("stdout")) {
 					out("Generated machine code (suitable for execution):");
-					writeResultsToStdout(true);
+					compiler.writeResultsToStdout(true);
 				} else {
 					out("Writing generated machine code to file: %s", output);
-					writeResultsToFile(new File(output));
+					compiler.writeResultsToFile(new File(output));
 				}
 
 				if (screen) {
 					out("Generated machine code (NOT suitable for execution):");
-					writeResultsToStdout(false);
+					compiler.writeResultsToStdout(false);
 				}
 			}
 
 			if (st)
-				out("Symbol Table:%n%s", symbolTable);
+				out("Symbol Table:%n%s", compiler.symbolTable);
 
 			if (data.success)
 				out("Compilation succeeded :)");
@@ -268,7 +274,7 @@ public class SML_Compiler {
 	}
 
 	/* Does everything apart from completing 'jump' instructions */
-	private static void pass1(CompilationData data) {
+	private void pass1(CompilationData data) {
 
 		memory.initializeForWriting();
 
@@ -322,7 +328,7 @@ public class SML_Compiler {
 							throw new VariableAlreadyDeclaredException(var);
 					}
 
-					statement.evaluate(line);
+					statement.evaluate(line, this);
 					continue next_line;
 				}
 
@@ -341,11 +347,11 @@ public class SML_Compiler {
 					if ((tokensInStatement != -1) && (tokensInStatement < tokens.length)) {
 						data.variable = tokens[tokensInStatement];
 						throw new UnexpectedTokensException(
-						        data.originalLine.substring(find(data)));
+								data.originalLine.substring(find(data)));
 					}
 
 					int tokensToScan = tokensInStatement == -1 ? tokens.length
-					        : tokensInStatement;
+							: tokensInStatement;
 
 					for (int i = 2, count = tokensToScan; i < count; ++i) {
 						String var = tokens[i];
@@ -414,18 +420,18 @@ public class SML_Compiler {
 				}
 
 				// actually write machine code for each command
-				statement.evaluate(line);
+				statement.evaluate(line, this);
 
 			} // end try (one statement / one line)
 			catch (CompilerException e) {
 				err("at: %s:%02d:%02d: %s", data.inputFileName, data.lineNumber,
-				        find(data), e.getMessage());
+						find(data), e.getMessage());
 				data.success = false;
 			}
 		} // end of while
 	} // end of pass1
 
-	private static void pass2(CompilationData data) {
+	private void pass2(CompilationData data) {
 		for (Entry<Integer, String> entry : ifgFlags.entrySet()) {
 
 			int    instructionAddress = entry.getKey();
@@ -443,7 +449,7 @@ public class SML_Compiler {
 
 			} catch (CompilerException e) {
 				err("at: %s:%02d:%02d: %s", data.inputFileName, data.lineNumber,
-				        find(data), e.getMessage());
+						find(data), e.getMessage());
 				data.success = false;
 			}
 		}
@@ -451,7 +457,7 @@ public class SML_Compiler {
 
 	// --- 5 methods for input, output and reset ---
 
-	private static void loadProgramFromStdin() {
+	private void loadProgramFromStdin() {
 		@SuppressWarnings("resource")
 		Scanner scanner = new Scanner(System.in);
 		program.setLength(0);
@@ -469,7 +475,7 @@ public class SML_Compiler {
 		}
 	}
 
-	private static void loadProgramFromFile(File file) {
+	private void loadProgramFromFile(File file) {
 		program.setLength(0);
 		String lineSep = System.lineSeparator();
 
@@ -484,24 +490,17 @@ public class SML_Compiler {
 		}
 	}
 
-	private static void writeResultsToStdout(boolean suitableForExecution) {
+	private void writeResultsToStdout(boolean suitableForExecution) {
 		out("%n%s", suitableForExecution ? memory.list() : memory.listShort());
 	}
 
-	private static void writeResultsToFile(File file) {
+	private void writeResultsToFile(File file) {
 		try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
 			writer.write(memory.list());
 
 		} catch (IOException e) {
 			err("Unexpected error while writing to file: %s", file);
 		}
-	}
-
-	private static void reset() {
-		memory.clear();
-		ifgFlags.clear();
-		blockStack.clear();
-		symbolTable.clear();
 	}
 
 	// --- 2 method for uniform message printing ---
@@ -523,7 +522,7 @@ public class SML_Compiler {
 	 *
 	 * @return the location in memory where it was placed
 	 */
-	static int addInstruction(int instruction) {
+	int addInstruction(int instruction) {
 		return memory.writeInstruction(instruction);
 	}
 
@@ -534,7 +533,7 @@ public class SML_Compiler {
 	 *
 	 * @return the location in memory where it was placed
 	 */
-	static int addConstant(int constant) {
+	int addConstant(int constant) {
 		return memory.writeConstant(constant);
 	}
 
@@ -543,7 +542,7 @@ public class SML_Compiler {
 	 *
 	 * @return the address of the variable
 	 */
-	public static int addVariable() {
+	public int addVariable() {
 		return memory.assignPlaceForVariable();
 	}
 
@@ -557,7 +556,7 @@ public class SML_Compiler {
 	 * @return the location of the declared line in memory, the location of the
 	 *         first instruction corresponding to this line
 	 */
-	static int addLine(String symbol) {
+	int addLine(String symbol) {
 		int location = memory.getInstructionCounter();
 		symbolTable.addEntry(symbol, LINE, location, "");
 		return location;
@@ -573,7 +572,7 @@ public class SML_Compiler {
 	 *
 	 * @return the location of the declared constant in memory
 	 */
-	static int declareConstant(String symbol, String varType) {
+	int declareConstant(String symbol, String varType) {
 		int location = addConstant(Integer.parseInt(symbol));
 		symbolTable.addEntry(symbol, CONSTANT, location, varType);
 		return location;
@@ -589,10 +588,9 @@ public class SML_Compiler {
 	 *
 	 * @return the location of the declared variable in memory
 	 */
-	static int declareVariable(String symbol, String varType) {
+	int declareVariable(String symbol, String varType) {
 		int location = addVariable();
-		SML_Compiler.symbolTable.addEntry(symbol, VARIABLE, location,
-		        varType);
+		symbolTable.addEntry(symbol, VARIABLE, location, varType);
 		return location;
 	}
 
@@ -606,7 +604,7 @@ public class SML_Compiler {
 	 * @see compiler.symboltable.SymbolTable#existsSymbol(String, SymbolType)
 	 *      SymbolTable.existsSymbol(String, VARIABLE)
 	 */
-	static boolean variableDeclared(String symbol) {
+	boolean variableDeclared(String symbol) {
 		return symbolTable.existsSymbol(symbol, VARIABLE);
 	}
 
@@ -620,7 +618,7 @@ public class SML_Compiler {
 	 * @see compiler.symboltable.SymbolTable#existsSymbol(String, SymbolType)
 	 *      SymbolTable.existsSymbol(String, CONSTANT)
 	 */
-	static boolean constantDeclared(String symbol) {
+	boolean constantDeclared(String symbol) {
 		return symbolTable.existsSymbol(symbol, CONSTANT);
 	}
 
@@ -634,7 +632,7 @@ public class SML_Compiler {
 	 * @see compiler.symboltable.SymbolTable#existsSymbol(String, SymbolType)
 	 *      SymbolTable.existsSymbol(String, LINE)
 	 */
-	static boolean lineDeclared(String symbol) {
+	boolean lineDeclared(String symbol) {
 		return symbolTable.existsSymbol(symbol, LINE);
 	}
 
@@ -648,7 +646,7 @@ public class SML_Compiler {
 	 * @see compiler.symboltable.SymbolTable#getSymbol(String, SymbolType...)
 	 *      SymbolTable.getSymbol(String, VARIABLE)
 	 */
-	static SymbolInfo getVariable(String symbol) {
+	SymbolInfo getVariable(String symbol) {
 		return symbolTable.getSymbol(symbol, VARIABLE);
 	}
 
@@ -662,7 +660,7 @@ public class SML_Compiler {
 	 * @see compiler.symboltable.SymbolTable#getSymbol(String, SymbolType...)
 	 *      SymbolTable.getSymbol(String, CONSTANT)
 	 */
-	static SymbolInfo getConstant(String symbol) {
+	SymbolInfo getConstant(String symbol) {
 		return symbolTable.getSymbol(symbol, CONSTANT);
 	}
 
@@ -676,7 +674,7 @@ public class SML_Compiler {
 	 * @see compiler.symboltable.SymbolTable#getSymbol(String)
 	 *      SymbolTable.getSymbol(String, LINE)
 	 */
-	static SymbolInfo getLine(String symbol) {
+	SymbolInfo getLine(String symbol) {
 		return symbolTable.getSymbol(symbol, LINE);
 	}
 
@@ -690,7 +688,7 @@ public class SML_Compiler {
 	 * @see compiler.symboltable.SymbolTable#getSymbol(String, SymbolType...)
 	 *      SymbolTable.getSymbol(String, VARIABLE, CONSTANT)
 	 */
-	static SymbolInfo getSymbol(String symbol) {
+	SymbolInfo getSymbol(String symbol) {
 		return symbolTable.getSymbol(symbol, VARIABLE, CONSTANT);
 	}
 
@@ -700,7 +698,7 @@ public class SML_Compiler {
 	 *
 	 * @return the Symbol Table
 	 */
-	static SymbolTable getSymbolTable() {
+	SymbolTable getSymbolTable() {
 		return symbolTable;
 	}
 
@@ -713,7 +711,7 @@ public class SML_Compiler {
 	 * @param location the address of the instruction
 	 * @param address  the address to jump
 	 */
-	static void setBranchLocation(int location, int address) {
+	void setBranchLocation(int location, int address) {
 		memory.write(location, memory.read(location) + address);
 	}
 
@@ -727,7 +725,7 @@ public class SML_Compiler {
 	 * @param location   the address of the instruction.
 	 * @param lineToJump the line to jump
 	 */
-	static void setLineToJump(int location, String lineToJump) {
+	void setLineToJump(int location, String lineToJump) {
 		ifgFlags.put(location, lineToJump);
 	}
 
@@ -738,7 +736,7 @@ public class SML_Compiler {
 	 *
 	 * @param block the block
 	 */
-	static void pushBlock(Block block) {
+	void pushBlock(Block block) {
 		blockStack.push(block);
 	}
 
@@ -747,7 +745,7 @@ public class SML_Compiler {
 	 *
 	 * @return the block
 	 */
-	static Block popBlock() {
+	Block popBlock() {
 		return blockStack.pop();
 	}
 

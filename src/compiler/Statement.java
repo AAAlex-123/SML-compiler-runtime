@@ -27,7 +27,7 @@ enum Statement {
 	/** Comment */
 	COMMENT("//", -1, false) {
 		@Override
-		public void evaluate(String line) {
+		public void evaluate(String line, SML_Compiler compiler) {
 
 		}
 	},
@@ -35,21 +35,21 @@ enum Statement {
 	/** Declaration of integer variables */
 	INT("int", -1, true) {
 		@Override
-		public void evaluate(String line) {
+		public void evaluate(String line, SML_Compiler compiler) {
 			final String[] tokens = line.split(" ");
 			for (int i = 2, count = tokens.length; i < count; ++i)
-				SML_Compiler.declareVariable(tokens[i], identifier);
+				compiler.declareVariable(tokens[i], identifier);
 		}
 	},
 
 	/** Prompt the user for input */
 	INPUT("input", -1, false) {
 		@Override
-		public void evaluate(String line) {
+		public void evaluate(String line, SML_Compiler compiler) {
 			final String[] vars = line.substring(9).split(" ");
 			for (final String var : vars) {
-				final int location = SML_Compiler.getVariable(var).location;
-				SML_Compiler.addInstruction(Instruction.READ_INT.opcode() + location);
+				final int location = compiler.getVariable(var).location;
+				compiler.addInstruction(Instruction.READ_INT.opcode() + location);
 			}
 		}
 	},
@@ -57,7 +57,7 @@ enum Statement {
 	/** Evaluate an expression and assign to variable */
 	LET("let", -1, false) {
 		@Override
-		public void evaluate(String line) {
+		public void evaluate(String line, SML_Compiler compiler) {
 			// generate postfix
 			final String        infix        = line.split("=")[1];
 			final List<Token>   postfix      = InfixToPostfix.convertToPostfix(infix);
@@ -66,39 +66,39 @@ enum Statement {
 			for (Token token : postfix) {
 				final String symbol = token.value;
 				if (symbol.matches("\\d+"))
-					if (!SML_Compiler.constantDeclared(symbol))
-						SML_Compiler.declareConstant(symbol, INT.identifier);
+					if (!compiler.constantDeclared(symbol))
+						compiler.declareConstant(symbol, INT.identifier);
 			}
 
-			final SymbolTable   symbolTable  = SML_Compiler.getSymbolTable();
+			final SymbolTable symbolTable = compiler.getSymbolTable();
 			final List<Integer> instructions = PostfixEvaluator.evaluatePostfix(postfix,
-			        symbolTable);
+					symbolTable, compiler);
 
 			// write instructions for evaluating postfix
 			for (final int instruction : instructions)
-				SML_Compiler.addInstruction(instruction);
+				compiler.addInstruction(instruction);
 
 			// store result of postfix that is loaded after the last instruction of evaluation
 			final String var      = line.split(" ")[2];
-			final int    location = SML_Compiler.getVariable(var).location;
+			final int location = compiler.getVariable(var).location;
 
-			SML_Compiler.addInstruction(Instruction.STORE.opcode() + location);
+			compiler.addInstruction(Instruction.STORE.opcode() + location);
 		}
 	},
 
 	/** Print the value of a variable to the screen */
 	PRINT("print", -1, false) {
 		@Override
-		public void evaluate(String line) {
+		public void evaluate(String line, SML_Compiler compiler) {
 			final String[] vars = line.substring(9).split(" ");
 			for (final String var : vars) {
-				final SymbolInfo info = SML_Compiler.getSymbol(var);
+				final SymbolInfo info = compiler.getSymbol(var);
 
 				final String varType  = info.varType;
 				final int    location = info.location;
 
 				if (varType.equals(INT.identifier))
-					SML_Compiler.addInstruction(Instruction.WRITE_NL.opcode() + location);
+					compiler.addInstruction(Instruction.WRITE_NL.opcode() + location);
 			}
 		}
 	},
@@ -106,20 +106,20 @@ enum Statement {
 	/** Unconditional jump to line */
 	GOTO("goto", 3, false) {
 		@Override
-		public void evaluate(String line) {
+		public void evaluate(String line, SML_Compiler compiler) {
 			final String[] tokens = line.split(" ");
 
-			final int location   = SML_Compiler.addInstruction(Instruction.BRANCH.opcode());
+			final int location = compiler.addInstruction(Instruction.BRANCH.opcode());
 			final String lineToJump = tokens[2];
 
-			SML_Compiler.setLineToJump(location, lineToJump);
+			compiler.setLineToJump(location, lineToJump);
 		}
 	},
 
 	/** Conditional jump to line */
 	IFGOTO("ifg", 7, false) {
 		@Override
-		public void evaluate(String line) {
+		public void evaluate(String line, SML_Compiler compiler) {
 			final String[] tokens = line.split(" ");
 
 			String    op1, op2;
@@ -128,58 +128,58 @@ enum Statement {
 			String    targetLine;
 
 			op1 = tokens[2];
-			loc1 = SML_Compiler.getSymbol(op1).location;
+			loc1 = compiler.getSymbol(op1).location;
 
 			condition = Condition.of(tokens[3]);
 
 			op2 = tokens[4];
-			loc2 = SML_Compiler.getSymbol(op2).location;
+			loc2 = compiler.getSymbol(op2).location;
 
 			targetLine = tokens[6];
 
 			int location;
 			switch (condition) {
 			case LT:
-				SML_Compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
-				SML_Compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
-				location = SML_Compiler.addInstruction(Instruction.BRANCHNEG.opcode());
-				SML_Compiler.setLineToJump(location, targetLine);
+				compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
+				compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
+				location = compiler.addInstruction(Instruction.BRANCHNEG.opcode());
+				compiler.setLineToJump(location, targetLine);
 				break;
 			case GT:
-				SML_Compiler.addInstruction(Instruction.LOAD.opcode() + loc2);
-				SML_Compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc1);
-				location = SML_Compiler.addInstruction(Instruction.BRANCHNEG.opcode());
-				SML_Compiler.setLineToJump(location, targetLine);
+				compiler.addInstruction(Instruction.LOAD.opcode() + loc2);
+				compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc1);
+				location = compiler.addInstruction(Instruction.BRANCHNEG.opcode());
+				compiler.setLineToJump(location, targetLine);
 				break;
 			case LE:
-				SML_Compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
-				SML_Compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
-				location = SML_Compiler.addInstruction(Instruction.BRANCHNEG.opcode());
-				SML_Compiler.setLineToJump(location, targetLine);
-				location = SML_Compiler.addInstruction(Instruction.BRANCHZERO.opcode());
-				SML_Compiler.setLineToJump(location, targetLine);
+				compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
+				compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
+				location = compiler.addInstruction(Instruction.BRANCHNEG.opcode());
+				compiler.setLineToJump(location, targetLine);
+				location = compiler.addInstruction(Instruction.BRANCHZERO.opcode());
+				compiler.setLineToJump(location, targetLine);
 				break;
 			case GE:
-				SML_Compiler.addInstruction(Instruction.LOAD.opcode() + loc2);
-				SML_Compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc1);
-				location = SML_Compiler.addInstruction(Instruction.BRANCHNEG.opcode());
-				SML_Compiler.setLineToJump(location, targetLine);
-				location = SML_Compiler.addInstruction(Instruction.BRANCHZERO.opcode());
-				SML_Compiler.setLineToJump(location, targetLine);
+				compiler.addInstruction(Instruction.LOAD.opcode() + loc2);
+				compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc1);
+				location = compiler.addInstruction(Instruction.BRANCHNEG.opcode());
+				compiler.setLineToJump(location, targetLine);
+				location = compiler.addInstruction(Instruction.BRANCHZERO.opcode());
+				compiler.setLineToJump(location, targetLine);
 				break;
 			case EQ:
-				SML_Compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
-				SML_Compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
-				location = SML_Compiler.addInstruction(Instruction.BRANCHZERO.opcode());
-				SML_Compiler.setLineToJump(location, targetLine);
+				compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
+				compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
+				location = compiler.addInstruction(Instruction.BRANCHZERO.opcode());
+				compiler.setLineToJump(location, targetLine);
 				break;
 			case NE:
-				SML_Compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
-				SML_Compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
-				location = SML_Compiler.addInstruction(Instruction.BRANCHZERO.opcode());
-				SML_Compiler.setLineToJump(location, targetLine);
-				location = SML_Compiler.addInstruction(Instruction.BRANCH.opcode());
-				SML_Compiler.setLineToJump(location, targetLine);
+				compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
+				compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
+				location = compiler.addInstruction(Instruction.BRANCHZERO.opcode());
+				compiler.setLineToJump(location, targetLine);
+				location = compiler.addInstruction(Instruction.BRANCH.opcode());
+				compiler.setLineToJump(location, targetLine);
 				break;
 			default:
 				break;
@@ -190,7 +190,7 @@ enum Statement {
 	/** Beginning of {@code if} block */
 	IF("if", 5, false) {
 		@Override
-		public void evaluate(String line) {
+		public void evaluate(String line, SML_Compiler compiler) {
 
 			final IfBlock block = new IfBlock();
 
@@ -201,90 +201,90 @@ enum Statement {
 			Condition condition;
 
 			op1 = tokens[2];
-			loc1 = SML_Compiler.getSymbol(op1).location;
+			loc1 = compiler.getSymbol(op1).location;
 
 			condition = Condition.of(tokens[3]);
 
 			op2 = tokens[4];
-			loc2 = SML_Compiler.getSymbol(op2).location;
+			loc2 = compiler.getSymbol(op2).location;
 
 			int location = 0;
 			switch (condition) {
 			case LT:
-				SML_Compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
-				location = SML_Compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
-				SML_Compiler.addInstruction(Instruction.BRANCHNEG.opcode() + location + 3);
-				location = SML_Compiler.addInstruction(Instruction.BRANCH.opcode());
+				compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
+				location = compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
+				compiler.addInstruction(Instruction.BRANCHNEG.opcode() + location + 3);
+				location = compiler.addInstruction(Instruction.BRANCH.opcode());
 				break;
 			case GT:
-				SML_Compiler.addInstruction(Instruction.LOAD.opcode() + loc2);
-				location = SML_Compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc1);
-				SML_Compiler.addInstruction(Instruction.BRANCHNEG.opcode() + location + 3);
-				location = SML_Compiler.addInstruction(Instruction.BRANCH.opcode());
+				compiler.addInstruction(Instruction.LOAD.opcode() + loc2);
+				location = compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc1);
+				compiler.addInstruction(Instruction.BRANCHNEG.opcode() + location + 3);
+				location = compiler.addInstruction(Instruction.BRANCH.opcode());
 				break;
 			case LE:
-				SML_Compiler.addInstruction(Instruction.LOAD.opcode() + loc2);
-				SML_Compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc1);
-				location = SML_Compiler.addInstruction(Instruction.BRANCHNEG.opcode());
+				compiler.addInstruction(Instruction.LOAD.opcode() + loc2);
+				compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc1);
+				location = compiler.addInstruction(Instruction.BRANCHNEG.opcode());
 				break;
 			case GE:
-				SML_Compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
-				SML_Compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
-				location = SML_Compiler.addInstruction(Instruction.BRANCHNEG.opcode());
+				compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
+				compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
+				location = compiler.addInstruction(Instruction.BRANCHNEG.opcode());
 				break;
 			case EQ:
-				SML_Compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
-				location = SML_Compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
-				SML_Compiler.addInstruction(Instruction.BRANCHZERO.opcode() + location + 3);
-				location = SML_Compiler.addInstruction(Instruction.BRANCH.opcode());
+				compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
+				location = compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
+				compiler.addInstruction(Instruction.BRANCHZERO.opcode() + location + 3);
+				location = compiler.addInstruction(Instruction.BRANCH.opcode());
 				break;
 			case NE:
-				SML_Compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
-				SML_Compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
-				location = SML_Compiler.addInstruction(Instruction.BRANCHZERO.opcode());
+				compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
+				compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
+				location = compiler.addInstruction(Instruction.BRANCHZERO.opcode());
 				break;
 			default:
 				break;
 			}
 			block.locationOfBranchToEndOfBlock = location;
-			SML_Compiler.pushBlock(block);
+			compiler.pushBlock(block);
 		}
 	},
 
 	/** Beginning of {@code else} block and end of {@code if} block */
 	ELSE("else", 2, false) {
 		@Override
-		public void evaluate(String line) {
-			final IfBlock oldBlock              = (IfBlock) SML_Compiler.popBlock();
-			final int     locationOfBranchToEnd = oldBlock.locationOfBranchToEndOfBlock;
-			final int     locationOfEnd         = SML_Compiler
-			        .addInstruction(Instruction.BRANCH.opcode());
+		public void evaluate(String line, SML_Compiler compiler) {
+			final IfBlock oldBlock = (IfBlock) compiler.popBlock();
+
+			final int locationOfBranchToEnd = oldBlock.locationOfBranchToEndOfBlock;
+			final int locationOfEnd         = compiler.addInstruction(Instruction.BRANCH.opcode());
 
 			final Block block = new IfBlock();
 			block.locationOfBranchToEndOfBlock = locationOfEnd;
-			SML_Compiler.pushBlock(block);
+			compiler.pushBlock(block);
 
-			SML_Compiler.setBranchLocation(locationOfBranchToEnd, locationOfEnd + 1);
+			compiler.setBranchLocation(locationOfBranchToEnd, locationOfEnd + 1);
 		}
 	},
 
 	/** End of {@code if} or {@code else} block */
 	ENDIF("endif", 2, false) {
 		@Override
-		public void evaluate(String line) {
-			final IfBlock block                 = (IfBlock) SML_Compiler.popBlock();
+		public void evaluate(String line, SML_Compiler compiler) {
+			final IfBlock block = (IfBlock) compiler.popBlock();
 			final int     locationOfBranchToEnd = block.locationOfBranchToEndOfBlock;
 
 			// dummy command just to get the location of endif
-			final int locationOfEnd = SML_Compiler.addInstruction(Instruction.NOOP.opcode());
-			SML_Compiler.setBranchLocation(locationOfBranchToEnd, locationOfEnd + 1);
+			final int locationOfEnd = compiler.addInstruction(Instruction.NOOP.opcode());
+			compiler.setBranchLocation(locationOfBranchToEnd, locationOfEnd + 1);
 		}
 	},
 
 	/** Start of {@code while} block */
 	WHILE("while", 5, false) {
 		@Override
-		public void evaluate(String line) {
+		public void evaluate(String line, SML_Compiler compiler) {
 
 			final WhileBlock block = new WhileBlock();
 
@@ -295,96 +295,95 @@ enum Statement {
 			Condition condition;
 
 			op1 = tokens[2];
-			loc1 = SML_Compiler.getSymbol(op1).location;
+			loc1 = compiler.getSymbol(op1).location;
 
 			condition = Condition.of(tokens[3]);
 
 			op2 = tokens[4];
-			loc2 = SML_Compiler.getSymbol(op2).location;
+			loc2 = compiler.getSymbol(op2).location;
 
 			int start    = 0;
 			int location = 0;
 			switch (condition) {
 			case LT:
-				start = SML_Compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
-				location = SML_Compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
-				SML_Compiler.addInstruction(Instruction.BRANCHNEG.opcode() + location + 3);
-				location = SML_Compiler.addInstruction(Instruction.BRANCH.opcode());
+				start = compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
+				location = compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
+				compiler.addInstruction(Instruction.BRANCHNEG.opcode() + location + 3);
+				location = compiler.addInstruction(Instruction.BRANCH.opcode());
 				break;
 			case GT:
-				start = SML_Compiler.addInstruction(Instruction.LOAD.opcode() + loc2);
-				location = SML_Compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc1);
-				SML_Compiler.addInstruction(Instruction.BRANCHNEG.opcode() + location + 3);
-				location = SML_Compiler.addInstruction(Instruction.BRANCH.opcode());
+				start = compiler.addInstruction(Instruction.LOAD.opcode() + loc2);
+				location = compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc1);
+				compiler.addInstruction(Instruction.BRANCHNEG.opcode() + location + 3);
+				location = compiler.addInstruction(Instruction.BRANCH.opcode());
 				break;
 			case LE:
-				start = SML_Compiler.addInstruction(Instruction.LOAD.opcode() + loc2);
-				SML_Compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc1);
-				location = SML_Compiler.addInstruction(Instruction.BRANCHNEG.opcode());
+				start = compiler.addInstruction(Instruction.LOAD.opcode() + loc2);
+				compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc1);
+				location = compiler.addInstruction(Instruction.BRANCHNEG.opcode());
 				break;
 			case GE:
-				start = SML_Compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
-				SML_Compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
-				location = SML_Compiler.addInstruction(Instruction.BRANCHNEG.opcode());
+				start = compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
+				compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
+				location = compiler.addInstruction(Instruction.BRANCHNEG.opcode());
 				break;
 			case EQ:
-				start = SML_Compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
-				location = SML_Compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
-				SML_Compiler.addInstruction(Instruction.BRANCHZERO.opcode() + location + 3);
-				location = SML_Compiler.addInstruction(Instruction.BRANCH.opcode());
+				start = compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
+				location = compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
+				compiler.addInstruction(Instruction.BRANCHZERO.opcode() + location + 3);
+				location = compiler.addInstruction(Instruction.BRANCH.opcode());
 				break;
 			case NE:
-				start = SML_Compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
-				SML_Compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
-				location = SML_Compiler.addInstruction(Instruction.BRANCHZERO.opcode());
+				start = compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
+				compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
+				location = compiler.addInstruction(Instruction.BRANCHZERO.opcode());
 				break;
 			default:
 				break;
 			}
 			block.locationOfFirstInstruction = start;
 			block.locationOfBranchToEndOfBlock = location;
-			SML_Compiler.pushBlock(block);
+			compiler.pushBlock(block);
 		}
 	},
 
 	/** End of while block */
 	ENDWHILE("endwhile", 2, false) {
 		@Override
-		public void evaluate(String line) {
+		public void evaluate(String line, SML_Compiler compiler) {
 
-			final WhileBlock block = (WhileBlock) SML_Compiler.popBlock();
+			final WhileBlock block = (WhileBlock) compiler.popBlock();
 
 			final int whileStartLocation = block.locationOfFirstInstruction;
-			final int whileEndLocation   = SML_Compiler
-			        .addInstruction(Instruction.BRANCH.opcode() + whileStartLocation);
+			final int whileEndLocation = compiler.addInstruction(Instruction.BRANCH.opcode() + whileStartLocation);
 
 
 			final int locationOfBranchToEnd = block.locationOfBranchToEndOfBlock;
-			SML_Compiler.setBranchLocation(locationOfBranchToEnd, whileEndLocation + 1);
+			compiler.setBranchLocation(locationOfBranchToEnd, whileEndLocation + 1);
 		}
 	},
 
 	/** End of program */
 	END("end", 2, false) {
 		@Override
-		public void evaluate(String line) {
-			SML_Compiler.addInstruction(Instruction.HALT.opcode());
+		public void evaluate(String line, SML_Compiler compiler) {
+			compiler.addInstruction(Instruction.HALT.opcode());
 		}
 	},
 
 	/** No-operation */
 	NOOP("noop", 2, false) {
 		@Override
-		public void evaluate(String line) {
-			SML_Compiler.addInstruction(Instruction.NOOP.opcode());
+		public void evaluate(String line, SML_Compiler compiler) {
+			compiler.addInstruction(Instruction.NOOP.opcode());
 		}
 	},
 
 	/** Dump memory contents to screen */
 	DUMP("dump", 2, false) {
 		@Override
-		public void evaluate(String line) {
-			SML_Compiler.addInstruction(Instruction.DUMP.opcode());
+		public void evaluate(String line, SML_Compiler compiler) {
+			compiler.addInstruction(Instruction.DUMP.opcode());
 		}
 	};
 
@@ -419,8 +418,9 @@ enum Statement {
 	 * code for a line of high-level code and stores it to the SML_Compiler.
 	 *
 	 * @param line a line of high-level code
+	 * @param compiler TODO
 	 */
-	public abstract void evaluate(String line);
+	protected abstract void evaluate(String line, SML_Compiler compiler);
 
 	/**
 	 * Returns the {@code Statement} that has the given {@code identifier}.
