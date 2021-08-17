@@ -24,6 +24,9 @@ import requirement.requirements.Requirements;
  * @author Alex Mandelias
  */
 public class SML_Simulator {
+	
+	/* Don't let anyone instantiate this class */
+	private SML_Simulator() {}
 
 	/** Informs the user about the different commands available in the Simulator */
 	private static final String msg = "\n\nUsage (parameters in [] are optional):\n"
@@ -145,14 +148,15 @@ public class SML_Simulator {
 
 		next_command:
 		while (!command.equals("exit")) {
+			// get requirements
 			compileReqs = SML_Compiler.getRequirements();
 			executeReqs = SML_Executor.getRequirements();
 
-			SML_Simulator.prompt();
-
 			// get options from next command the user types
+			SML_Simulator.prompt();
 			options = SML_Simulator.getNextCommand();
 
+			// if error while getting options from command continue
 			if (options == null)
 				continue next_command;
 
@@ -188,8 +192,10 @@ public class SML_Simulator {
 
 			else if (command.equals("compile"))
 				SML_Compiler.compile(compileReqs);
+
 			else if (command.equals("execute"))
 				SML_Executor.execute(executeReqs);
+
 			else if (command.equals("com_exe")) {
 
 				if (!inter.isEmpty()) {
