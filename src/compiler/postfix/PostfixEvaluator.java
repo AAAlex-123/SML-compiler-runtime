@@ -44,7 +44,7 @@ public final class PostfixEvaluator {
 	 *
 	 * @return the list of instructions
 	 */
-	public static List<Integer> evaluatePostfix(List<Token> postfix, SymbolTable symbolTable) {
+	public static List<Integer> evaluatePostfix(List<Token> postfix, SymbolTable symbolTable, SML_Compiler compiler) {
 
 		final List<Integer>  instructionList = new ArrayList<>();
 		final Stack<Integer> stack           = new Stack<>();
@@ -62,7 +62,7 @@ public final class PostfixEvaluator {
 
 				final Instruction instruction = PostfixEvaluator.getInstructionFromToken(token);
 
-				final int resultLocation = SML_Compiler.addVariable();
+				final int resultLocation = compiler.addVariable();
 
 				instructionList.add(Instruction.LOAD.opcode() + xlocation);
 				instructionList.add(instruction.opcode() + ylocation);
