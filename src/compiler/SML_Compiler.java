@@ -380,8 +380,10 @@ public class SML_Compiler {
 								throw new VariableNotDeclaredException(var);
 
 						} else if (isLabelName(var)) {
-							if (!labelDeclared(var))
-								throw new LabelNotDeclaredException(var);
+							/*
+							 * because goto instructions may jump to a label further down the program, it is
+							 * not necessary for labels to be declared
+							 */
 
 						} else if (keywords.contains(var)) {
 							// dismiss keywords
@@ -427,6 +429,18 @@ public class SML_Compiler {
 					data.variable = var;
 					if (!var.equals("goto"))
 						throw new UnexpectedTokenException(var, "goto");
+
+					var = tokens[6];
+					data.variable = var;
+					if (!isLabelName(var))
+						throw new NotALabelException(var);
+					break;
+				case LABEL:
+				case GOTO:
+					var = tokens[2];
+					data.variable = var;
+					if (!isLabelName(var))
+						throw new NotALabelException(var);
 					break;
 				case END:
 					if (!blockStack.empty())
@@ -458,7 +472,7 @@ public class SML_Compiler {
 				data.variable = labelToJump;
 
 				if (!labelDeclared(labelToJump))
-					throw new NotALabelException(labelToJump);
+					throw new LabelNotDeclaredException(labelToJump);
 
 				int location = getLabel(labelToJump).location;
 				int instruction = memory.read(instructionAddress);
