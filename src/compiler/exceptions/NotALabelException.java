@@ -5,7 +5,7 @@ package compiler.exceptions;
  *
  * @author Alex Mandelias
  */
-public class NotALabel extends CompilerException {
+public class NotALabelException extends CompilerException {
 
 	/**
 	 * Constructs the exception with information about the {@code symbol} that isn't
@@ -13,7 +13,7 @@ public class NotALabel extends CompilerException {
 	 *
 	 * @param symbol the symbol that isn't a label
 	 */
-	public NotALabel(String symbol) {
+	public NotALabelException(String symbol) {
 		super("'%s' is not a label", symbol);
 	}
 }
