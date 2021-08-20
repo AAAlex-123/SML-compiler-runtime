@@ -2,13 +2,15 @@
 01 int a b c
 
 02 // (b^2 + c^2)^2 / 5 must be greater than 10
+03 label :input
 04 input b c
 08 let a = ((b*b)   +c*   c) ^2/ 5
 12 print a b c
 
-16 goto 24
+16 goto :back
 20 noop
-24 ifg a < 10 goto 04
+22 label :back
+24 ifg a < 10 goto :input
 
 26 // number guessing game, 0=too high, 1=too low
 28 while b != c
