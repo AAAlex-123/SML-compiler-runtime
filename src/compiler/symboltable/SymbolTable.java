@@ -1,7 +1,5 @@
 package compiler.symboltable;
 
-import static compiler.symboltable.SymbolType.LINE;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -89,28 +87,6 @@ public class SymbolTable {
 			throw new UnknownSymbolException(symbol, types);
 
 		return info;
-	}
-
-	/**
-	 * Returns the second symbol that is a line and has the same symbol as the one
-	 * given.
-	 * <p>
-	 * TODO: what the fuck
-	 *
-	 * @param symbol the symbol
-	 *
-	 * @return the second symbol that is a line
-	 */
-	public SymbolInfo getNextLine(String symbol) {
-		boolean found = false;
-		for (SymbolInfo info : map.values()) {
-			if (found && (info.type == LINE))
-				return info;
-
-			found = found || (symbol.equals(info.symbol) && (info.type == LINE));
-		}
-
-		throw new UnknownSymbolException(symbol);
 	}
 
 	/** Clears the table */

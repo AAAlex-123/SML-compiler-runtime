@@ -2,8 +2,8 @@ package compiler.symboltable;
 
 /**
  * The Type of a {@link SymbolInfo Symbol} found in a high-level-language
- * program. {@code Symbols} may represent Variables, Constants or Lines and have
- * the corresponding type.
+ * program. {@code Symbols} may represent Variables, Constants or Labels and
+ * have the corresponding type.
  *
  * @author Alex Mandelias
  */
@@ -16,7 +16,7 @@ public enum SymbolType {
 	CONSTANT('C'),
 
 	/** Symbol for a Line */
-	LINE('L');
+	LABEL('L');
 
 	private char c;
 

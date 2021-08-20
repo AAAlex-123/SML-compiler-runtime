@@ -103,6 +103,16 @@ enum Statement {
 		}
 	},
 
+	/** Define a label (location to jump to) */
+	LABEL("label", 3, true) {
+		@Override
+		public void evaluate(String line, SML_Compiler compiler) {
+			final String[] tokens = line.split(" ");
+			final String label = tokens[2];
+			compiler.declareLabel(label);
+		}
+	},
+
 	/** Unconditional jump to line */
 	GOTO("goto", 3, false) {
 		@Override
@@ -110,9 +120,9 @@ enum Statement {
 			final String[] tokens = line.split(" ");
 
 			final int location = compiler.addInstruction(Instruction.BRANCH.opcode());
-			final String lineToJump = tokens[2];
+			final String labelToJump = tokens[2];
 
-			compiler.setLineToJump(location, lineToJump);
+			compiler.setLabelToJump(location, labelToJump);
 		}
 	},
 
@@ -125,7 +135,7 @@ enum Statement {
 			String    op1, op2;
 			int       loc1, loc2;
 			Condition condition;
-			String    targetLine;
+			String    labelToJump;
 
 			op1 = tokens[2];
 			loc1 = compiler.getSymbol(op1).location;
@@ -135,7 +145,7 @@ enum Statement {
 			op2 = tokens[4];
 			loc2 = compiler.getSymbol(op2).location;
 
-			targetLine = tokens[6];
+			labelToJump = tokens[6];
 
 			int location;
 			switch (condition) {
@@ -143,43 +153,43 @@ enum Statement {
 				compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
 				compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
 				location = compiler.addInstruction(Instruction.BRANCHNEG.opcode());
-				compiler.setLineToJump(location, targetLine);
+				compiler.setLabelToJump(location, labelToJump);
 				break;
 			case GT:
 				compiler.addInstruction(Instruction.LOAD.opcode() + loc2);
 				compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc1);
 				location = compiler.addInstruction(Instruction.BRANCHNEG.opcode());
-				compiler.setLineToJump(location, targetLine);
+				compiler.setLabelToJump(location, labelToJump);
 				break;
 			case LE:
 				compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
 				compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
 				location = compiler.addInstruction(Instruction.BRANCHNEG.opcode());
-				compiler.setLineToJump(location, targetLine);
+				compiler.setLabelToJump(location, labelToJump);
 				location = compiler.addInstruction(Instruction.BRANCHZERO.opcode());
-				compiler.setLineToJump(location, targetLine);
+				compiler.setLabelToJump(location, labelToJump);
 				break;
 			case GE:
 				compiler.addInstruction(Instruction.LOAD.opcode() + loc2);
 				compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc1);
 				location = compiler.addInstruction(Instruction.BRANCHNEG.opcode());
-				compiler.setLineToJump(location, targetLine);
+				compiler.setLabelToJump(location, labelToJump);
 				location = compiler.addInstruction(Instruction.BRANCHZERO.opcode());
-				compiler.setLineToJump(location, targetLine);
+				compiler.setLabelToJump(location, labelToJump);
 				break;
 			case EQ:
 				compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
 				compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
 				location = compiler.addInstruction(Instruction.BRANCHZERO.opcode());
-				compiler.setLineToJump(location, targetLine);
+				compiler.setLabelToJump(location, labelToJump);
 				break;
 			case NE:
 				compiler.addInstruction(Instruction.LOAD.opcode() + loc1);
 				compiler.addInstruction(Instruction.SUBTRACT.opcode() + loc2);
 				location = compiler.addInstruction(Instruction.BRANCHZERO.opcode());
-				compiler.setLineToJump(location, targetLine);
+				compiler.setLabelToJump(location, labelToJump);
 				location = compiler.addInstruction(Instruction.BRANCH.opcode());
-				compiler.setLineToJump(location, targetLine);
+				compiler.setLabelToJump(location, labelToJump);
 				break;
 			default:
 				break;

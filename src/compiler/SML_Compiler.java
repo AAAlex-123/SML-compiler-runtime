@@ -10,7 +10,7 @@ import static compiler.postfix.Token.MUL;
 import static compiler.postfix.Token.POW;
 import static compiler.postfix.Token.SUB;
 import static compiler.symboltable.SymbolType.CONSTANT;
-import static compiler.symboltable.SymbolType.LINE;
+import static compiler.symboltable.SymbolType.LABEL;
 import static compiler.symboltable.SymbolType.VARIABLE;
 
 import java.io.BufferedReader;
@@ -32,9 +32,12 @@ import java.util.StringTokenizer;
 
 import compiler.blocks.Block;
 import compiler.exceptions.CompilerException;
+import compiler.exceptions.InvalidLabelNameException;
 import compiler.exceptions.InvalidLineNameException;
 import compiler.exceptions.InvalidVariableNameException;
-import compiler.exceptions.NotALineException;
+import compiler.exceptions.LabelAlreadyDeclaredException;
+import compiler.exceptions.LabelNotDeclaredException;
+import compiler.exceptions.NotALabelException;
 import compiler.exceptions.NotAVariableException;
 import compiler.exceptions.UnclosedBlockException;
 import compiler.exceptions.UnexpectedTokenException;
@@ -81,7 +84,7 @@ public class SML_Compiler {
 	private final SymbolTable          symbolTable;
 	private final CodeWriter           memory;
 	private final StringBuilder        program;
-	private final Map<Integer, String> ifgFlags;
+	private final Map<Integer, String> labelFlags;
 	private final Stack<Block>         blockStack;
 
 	private static class CompilationData {
@@ -97,7 +100,7 @@ public class SML_Compiler {
 		symbolTable = new SymbolTable();
 		memory      = new Memory(256);
 		program     = new StringBuilder();
-		ifgFlags    = new HashMap<>();
+		labelFlags    = new HashMap<>();
 		blockStack  = new Stack<>();
 	}
 
@@ -306,7 +309,7 @@ public class SML_Compiler {
 				if (!isNumber(lineNo))
 					throw new InvalidLineNameException(lineNo);
 
-				addLine(lineNo);
+				// addLine(lineNo);
 				data.lineNumber = Integer.parseInt(lineNo);
 
 				// handle command
@@ -321,11 +324,22 @@ public class SML_Compiler {
 						String var = tokens[i];
 						data.variable = var;
 
-						if (!isVariableName(var))
-							throw new InvalidVariableNameException(var);
+						if (statement == Statement.LABEL) {
+							if (tokens.length > Statement.LABEL.length)
+								throw new UnexpectedTokensException(data.originalLine.substring(find(data)));
 
-						if (variableDeclared(var))
-							throw new VariableAlreadyDeclaredException(var);
+							if (!isLabelName(var))
+								throw new InvalidLabelNameException(var);
+
+							if (labelDeclared(var))
+								throw new LabelAlreadyDeclaredException(var);
+						} else {
+							if (!isVariableName(var))
+								throw new InvalidVariableNameException(var);
+
+							if (variableDeclared(var))
+								throw new VariableAlreadyDeclaredException(var);
+						}
 					}
 
 					statement.evaluate(line, this);
@@ -346,8 +360,7 @@ public class SML_Compiler {
 
 					if ((tokensInStatement != -1) && (tokensInStatement < tokens.length)) {
 						data.variable = tokens[tokensInStatement];
-						throw new UnexpectedTokensException(
-								data.originalLine.substring(find(data)));
+						throw new UnexpectedTokensException(data.originalLine.substring(find(data)));
 					}
 
 					int tokensToScan = tokensInStatement == -1 ? tokens.length
@@ -356,15 +369,21 @@ public class SML_Compiler {
 					for (int i = 2, count = tokensToScan; i < count; ++i) {
 						String var = tokens[i];
 						data.variable = var;
+
+						// declare constants, assert variables and labels are declared
 						if (isNumber(var)) {
-							// declare constants
 							if (!constantDeclared(var))
 								declareConstant(var, INT.identifier);
 
 						} else if (isVariableName(var)) {
-							// assert variable is declared
 							if (!variableDeclared(var))
 								throw new VariableNotDeclaredException(var);
+
+						} else if (isLabelName(var)) {
+							/*
+							 * because goto instructions may jump to a label further down the program, it is
+							 * not necessary for labels to be declared
+							 */
 
 						} else if (keywords.contains(var)) {
 							// dismiss keywords
@@ -410,6 +429,18 @@ public class SML_Compiler {
 					data.variable = var;
 					if (!var.equals("goto"))
 						throw new UnexpectedTokenException(var, "goto");
+
+					var = tokens[6];
+					data.variable = var;
+					if (!isLabelName(var))
+						throw new NotALabelException(var);
+					break;
+				case LABEL:
+				case GOTO:
+					var = tokens[2];
+					data.variable = var;
+					if (!isLabelName(var))
+						throw new NotALabelException(var);
 					break;
 				case END:
 					if (!blockStack.empty())
@@ -432,18 +463,18 @@ public class SML_Compiler {
 	} // end of pass1
 
 	private void pass2(CompilationData data) {
-		for (Entry<Integer, String> entry : ifgFlags.entrySet()) {
+		for (Entry<Integer, String> entry : labelFlags.entrySet()) {
 
 			int    instructionAddress = entry.getKey();
-			String lineToJump         = entry.getValue();
+			String labelToJump = entry.getValue();
 
 			try {
-				data.variable = lineToJump;
+				data.variable = labelToJump;
 
-				if (!lineDeclared(lineToJump))
-					throw new NotALineException(lineToJump);
+				if (!labelDeclared(labelToJump))
+					throw new LabelNotDeclaredException(labelToJump);
 
-				int location    = getLine(lineToJump).location;
+				int location = getLabel(labelToJump).location;
 				int instruction = memory.read(instructionAddress);
 				memory.write(instructionAddress, instruction + location);
 
@@ -549,16 +580,18 @@ public class SML_Compiler {
 	// --- 11 symbolt table wrapper-delegate methods ---
 
 	/**
-	 * Declares line by creating an Entry in the Symbol Table.
+	 * Declares a variable of a specific {@code varType} for a {@code symbol} by
+	 * allocating an address for it in memory and creating an Entry in the Symbol
+	 * Table.
 	 *
-	 * @param symbol the line's symbol
+	 * @param symbol  the variable's symbol
+	 * @param varType the variable's varType (int, string etc.)
 	 *
-	 * @return the location of the declared line in memory, the location of the
-	 *         first instruction corresponding to this line
+	 * @return the location of the declared variable in memory
 	 */
-	int addLine(String symbol) {
-		int location = memory.getInstructionCounter();
-		symbolTable.addEntry(symbol, LINE, location, "");
+	int declareVariable(String symbol, String varType) {
+		int location = addVariable();
+		symbolTable.addEntry(symbol, VARIABLE, location, varType);
 		return location;
 	}
 
@@ -579,18 +612,16 @@ public class SML_Compiler {
 	}
 
 	/**
-	 * Declares a variable of a specific {@code varType} for a {@code symbol} by
-	 * allocating an address for it in memory and creating an Entry in the Symbol
-	 * Table.
+	 * Declares a label by creating an Entry in the Symbol Table.
 	 *
-	 * @param symbol  the variable's symbol
-	 * @param varType the variable's varType (int, string etc.)
+	 * @param symbol the label's symbol
 	 *
-	 * @return the location of the declared variable in memory
+	 * @return the location of the declared label in memory, the location of the
+	 *         first instruction corresponding to this label
 	 */
-	int declareVariable(String symbol, String varType) {
-		int location = addVariable();
-		symbolTable.addEntry(symbol, VARIABLE, location, varType);
+	int declareLabel(String symbol) {
+		int location = memory.getInstructionCounter();
+		symbolTable.addEntry(symbol, LABEL, location, "");
 		return location;
 	}
 
@@ -632,8 +663,8 @@ public class SML_Compiler {
 	 * @see compiler.symboltable.SymbolTable#existsSymbol(String, SymbolType)
 	 *      SymbolTable.existsSymbol(String, LINE)
 	 */
-	boolean lineDeclared(String symbol) {
-		return symbolTable.existsSymbol(symbol, LINE);
+	boolean labelDeclared(String symbol) {
+		return symbolTable.existsSymbol(symbol, LABEL);
 	}
 
 	/**
@@ -674,8 +705,8 @@ public class SML_Compiler {
 	 * @see compiler.symboltable.SymbolTable#getSymbol(String)
 	 *      SymbolTable.getSymbol(String, LINE)
 	 */
-	SymbolInfo getLine(String symbol) {
-		return symbolTable.getSymbol(symbol, LINE);
+	SymbolInfo getLabel(String symbol) {
+		return symbolTable.getSymbol(symbol, LABEL);
 	}
 
 	/**
@@ -716,17 +747,17 @@ public class SML_Compiler {
 	}
 
 	/**
-	 * Sets the {@code line} in the high-level-program where the a branch
+	 * Sets the {@code label} in the high-level-program where the a branch
 	 * instruction will jump to. The instruction is located at the {@code location}
 	 * in memory. This method does NOT complete the actual branch instruction. It
-	 * acts merely marks the line so that later, when the address of that line in
+	 * acts merely marks the label so that later, when the address of that label in
 	 * the machine code is known, the branch instruction can be completed.
 	 *
-	 * @param location   the address of the instruction.
-	 * @param lineToJump the line to jump
+	 * @param location    the address of the instruction.
+	 * @param labelToJump the label to jump
 	 */
-	void setLineToJump(int location, String lineToJump) {
-		ifgFlags.put(location, lineToJump);
+	void setLabelToJump(int location, String labelToJump) {
+		labelFlags.put(location, labelToJump);
 	}
 
 	// --- 2 method for handling the stack of blocks ---
@@ -753,6 +784,10 @@ public class SML_Compiler {
 
 	private static boolean isVariableName(String var) {
 		return var.matches("[a-zA-Z]\\w*") && !keywords.contains(var);
+	}
+
+	private static boolean isLabelName(String var) {
+		return var.matches(":\\w*") && !keywords.contains(var);
 	}
 
 	private static boolean isNumber(String con) {
