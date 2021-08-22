@@ -37,8 +37,6 @@ import compiler.exceptions.InvalidLineNameException;
 import compiler.exceptions.InvalidVariableNameException;
 import compiler.exceptions.LabelAlreadyDeclaredException;
 import compiler.exceptions.LabelNotDeclaredException;
-import compiler.exceptions.NotALabelException;
-import compiler.exceptions.NotAVariableException;
 import compiler.exceptions.UnclosedBlockException;
 import compiler.exceptions.UnexpectedTokenException;
 import compiler.exceptions.UnexpectedTokensException;
@@ -52,7 +50,6 @@ import memory.Memory;
 import requirement.requirements.AbstractRequirement;
 import requirement.requirements.Requirements;
 import requirement.requirements.StringType;
-import runtime.Instruction;
 
 /**
  * A Compiler for the high-level language. It defines the {@code static} method
@@ -281,20 +278,15 @@ public class SML_Compiler {
 
 		memory.initializeForWriting();
 
-		StringTokenizer lineTokenizer = new StringTokenizer(program.toString(), "\n");
+		StringTokenizer lineTokenizer = new StringTokenizer(program.toString(), System.lineSeparator());
 
 		String    line = "";
 		String[]  tokens;
 		Statement statement;
 
-		next_line: while (!line.matches("\\d\\d end")) {
+		next_line: while (lineTokenizer.hasMoreTokens()) {
 
 			try {
-				// always terminate, even when no '\d\d end' statement is found
-				if (!lineTokenizer.hasMoreTokens()) {
-					addInstruction(Instruction.HALT.opcode());
-					break next_line;
-				}
 
 				// get line and remove extra whitespace
 				data.originalLine = lineTokenizer.nextToken();
@@ -303,18 +295,18 @@ public class SML_Compiler {
 				if (line.isBlank())
 					continue next_line;
 
-				// handle line number
 				tokens = line.split(" ");
+
+				// handle line number
 				String lineNo = tokens[0];
 				if (!isNumber(lineNo))
 					throw new InvalidLineNameException(lineNo);
 
-				// addLine(lineNo);
 				data.lineNumber = Integer.parseInt(lineNo);
 
 				// handle command
 				if (tokens.length == 1)
-					throw new UnexpectedTokenException("", "a command");
+					throw new UnexpectedTokenException("", "a statement");
 
 				statement = Statement.of(tokens[1]);
 
@@ -356,15 +348,15 @@ public class SML_Compiler {
 				 * this, a more elaborate and statement-specific parsing is required.
 				 */
 				if (!statement.equals(COMMENT)) {
-					int tokensInStatement = statement.length;
+					int expectedCount = statement.length;
 
-					if ((tokensInStatement != -1) && (tokensInStatement < tokens.length)) {
-						data.variable = tokens[tokensInStatement];
+					if ((expectedCount != -1) && (expectedCount < tokens.length)) {
+						data.variable = tokens[expectedCount];
 						throw new UnexpectedTokensException(data.originalLine.substring(find(data)));
 					}
 
-					int tokensToScan = tokensInStatement == -1 ? tokens.length
-							: tokensInStatement;
+					int tokensToScan = expectedCount == -1 ? tokens.length
+							: expectedCount;
 
 					for (int i = 2, count = tokensToScan; i < count; ++i) {
 						String var = tokens[i];
@@ -401,56 +393,13 @@ public class SML_Compiler {
 				 */
 
 				// statement-specific checks
-				switch (statement) {
-				case INPUT:
-					String var;
-					for (String inputVar : line.substring(9).split(" "))
-						if (isNumber(inputVar))
-							throw new NotAVariableException(inputVar);
-					break;
-				case LET:
-					var = tokens[2];
-					data.variable = var;
-					if (!isVariableName(var))
-						throw new NotAVariableException(var);
-
-					var = tokens[3];
-					data.variable = var;
-					if (!var.equals("="))
-						throw new UnexpectedTokenException(var, "=");
-					break;
-				case IFGOTO:
-					var = tokens[3];
-					data.variable = var;
-					if (Condition.of(var) == null)
-						throw new UnexpectedTokenException(var, "a condition");
-
-					var = tokens[5];
-					data.variable = var;
-					if (!var.equals("goto"))
-						throw new UnexpectedTokenException(var, "goto");
-
-					var = tokens[6];
-					data.variable = var;
-					if (!isLabelName(var))
-						throw new NotALabelException(var);
-					break;
-				case LABEL:
-				case GOTO:
-					var = tokens[2];
-					data.variable = var;
-					if (!isLabelName(var))
-						throw new NotALabelException(var);
-					break;
-				case END:
+				if (statement == Statement.END) {
 					if (!blockStack.empty())
 						throw new UnclosedBlockException(blockStack.pop());
-					break;
-				default:
-					break;
 				}
 
 				// actually write machine code for each command
+				statement.checkSyntax(line);
 				statement.evaluate(line, this);
 
 			} // end try (one statement / one line)
@@ -780,7 +729,7 @@ public class SML_Compiler {
 		return blockStack.pop();
 	}
 
-	// --- 2 methods for defining variables and constants ---
+	// --- 3 methods for defining variables, constants and labels ---
 
 	private static boolean isVariableName(String var) {
 		return var.matches("[a-zA-Z]\\w*") && !keywords.contains(var);
@@ -791,12 +740,7 @@ public class SML_Compiler {
 	}
 
 	private static boolean isNumber(String con) {
-		try {
-			Integer.parseInt(con, 10);
-			return true;
-		} catch (NumberFormatException e) {
-			return false;
-		}
+		return con.matches("[1-9]\\d*");
 	}
 
 	// --- idk really ---
