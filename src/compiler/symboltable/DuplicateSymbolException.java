@@ -9,11 +9,11 @@ package compiler.symboltable;
 public class DuplicateSymbolException extends RuntimeException {
 
 	/**
-	 * Constructs the Exception with the given {@code key} of a Symbol.
+	 * Constructs the Exception with a {@code key}.
 	 *
-	 * @param key the key
+	 * @param key the key of the duplicate symbol
 	 */
 	public DuplicateSymbolException(SymbolKey key) {
-		super(String.format("Symbol %s of type %s already exists", key.symbol, key.type));
+		super(String.format("Symbol '%s' of type '%s' already exists", key.symbol, key.type));
 	}
 }
