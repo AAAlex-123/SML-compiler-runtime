@@ -13,9 +13,9 @@ import runtime.Instruction;
 
 /**
  * Defines the static method
- * {@link PostfixEvaluator#evaluatePostfix(List, SymbolTable)
- * evaluatePostfix(List, SymbolTable)} which returns the machine language
- * {@link runtime.Instruction instructions} that evaluate the postfix
+ * {@link PostfixEvaluator#evaluatePostfix(List, SymbolTable, SML_Compiler)
+ * evaluatePostfix(List, SymbolTable, SML_Copmiler)} which returns the machine
+ * language {@link runtime.Instruction instructions} that evaluate the postfix
  * expression. A {@link SymbolTable} is used to access and allocate the correct
  * addresses during the evaluation.
  *
@@ -41,6 +41,7 @@ public final class PostfixEvaluator {
 	 * @param symbolTable the SymbolTable containing information about symbols of
 	 *                    the postfix expression, which will be used to store the
 	 *                    addresses of newly allocated variables
+	 * @param compiler    the compiler where the variables will be allocated
 	 *
 	 * @return the list of instructions
 	 */
