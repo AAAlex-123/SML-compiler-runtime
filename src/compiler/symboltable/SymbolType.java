@@ -21,19 +21,36 @@ import compiler.exceptions.UnexpectedTokenException;
 public enum SymbolType {
 
 	/** Symbol for a Variable */
-	VARIABLE('V', "[a-zA-Z]\\w*", NotAVariableException.class),
+	VARIABLE('V', "^[a-zA-Z]\\w*$", NotAVariableException.class),
 
 	/** Symbol for a Constant */
-	CONSTANT('C', "[1-9]\\d*", null),
+	CONSTANT('C', "^[1-9]\\d*|0$", null),
 
 	/** Symbol for a Line */
-	LABEL('L', ":\\w*", NotALabelException.class);
+	LABEL('L', "^:\\w*$", NotALabelException.class);
 
 	/** The Pattern that Symbols of this Type match */
 	public final Pattern pattern;
 
 	private final char                               c;
 	private final Class<? extends CompilerException> exc;
+
+	/**
+	 * Returns the type of a {@code symbol} according to the {@code pattern} (regex)
+	 * of each of the SymbolTypes defined in this enum.
+	 *
+	 * @param symbol the symbol
+	 *
+	 * @return the enum constant corresponding to the symbol's type, or {@code null}
+	 *         if no enum constants match the symbol
+	 */
+	public static SymbolType typeOf(String symbol) {
+		for (final SymbolType type : SymbolType.values())
+			if (type.pattern.matcher(symbol).find())
+				return type;
+
+		return null;
+	}
 
 	SymbolType(char c, String regex, Class<? extends CompilerException> exc) {
 		this.c = c;
@@ -57,7 +74,7 @@ public enum SymbolType {
 	public static void assertType(String symbol, SymbolType type) throws CompilerException {
 		if (!type.pattern.matcher(symbol).find())
 			try {
-				throw type.exc.getDeclaredConstructor(String.class).newInstance();
+				throw type.exc.getDeclaredConstructor(String.class).newInstance(symbol);
 			} catch (InstantiationException | IllegalAccessException | IllegalArgumentException
 			        | InvocationTargetException | NoSuchMethodException | SecurityException e) {
 				throw new RuntimeException(e);
@@ -76,7 +93,7 @@ public enum SymbolType {
 	        throws UnexpectedTokenException {
 		if (type.pattern.matcher(symbol).find())
 			try {
-				throw new UnexpectedTokenException(symbol, "not a " + type);
+				throw new UnexpectedTokenException(symbol, "not a " + type.name());
 			} catch (IllegalArgumentException | SecurityException e) {
 				throw new RuntimeException(e);
 			}
