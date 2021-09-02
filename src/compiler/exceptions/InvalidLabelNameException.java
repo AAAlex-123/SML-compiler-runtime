@@ -9,10 +9,9 @@ package compiler.exceptions;
 public class InvalidLabelNameException extends CompilerException {
 
 	/**
-	 * Constructs the exception with the {@code symbol} that isn't a valid label
-	 * name.
+	 * Constructs the exception with a {@code symbol}.
 	 *
-	 * @param label the symbol that isn't a valid label name.
+	 * @param label the symbol that isn't a valid Label name.
 	 */
 	public InvalidLabelNameException(String label) {
 		super("'%s' is not a valid label name", label);
