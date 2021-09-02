@@ -54,7 +54,7 @@ enum Condition {
 	 */
 	public static Condition of(String identifier) throws InvalidConditionException {
 
-		final Condition condition = Condition.of(identifier);
+		final Condition condition = map.get(identifier);
 
 		if (condition == null)
 			throw new InvalidConditionException(identifier);
