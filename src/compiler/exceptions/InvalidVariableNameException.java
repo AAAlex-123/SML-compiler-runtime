@@ -9,12 +9,11 @@ package compiler.exceptions;
 public class InvalidVariableNameException extends CompilerException {
 
 	/**
-	 * Constructs the exception with the {@code symbol} that isn't a valid variable
-	 * name.
+	 * Constructs the exception with a {@code symbol}.
 	 *
-	 * @param symbol the symbol that isn't a valid variable name.
+	 * @param variable the symbol that isn't a valid Variable name.
 	 */
-	public InvalidVariableNameException(String symbol) {
-		super("'%s' is not a valid variable name", symbol);
+	public InvalidVariableNameException(String variable) {
+		super("'%s' is not a valid variable name", variable);
 	}
 }
