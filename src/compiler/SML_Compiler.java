@@ -3,12 +3,6 @@ package compiler;
 import static compiler.Statement.COMMENT;
 import static compiler.Statement.INT;
 import static compiler.Statement.LET;
-import static compiler.postfix.Token.ADD;
-import static compiler.postfix.Token.DIV;
-import static compiler.postfix.Token.MOD;
-import static compiler.postfix.Token.MUL;
-import static compiler.postfix.Token.POW;
-import static compiler.postfix.Token.SUB;
 import static compiler.symboltable.SymbolType.CONSTANT;
 import static compiler.symboltable.SymbolType.LABEL;
 import static compiler.symboltable.SymbolType.VARIABLE;
@@ -22,8 +16,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.EmptyStackException;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Scanner;
@@ -42,6 +38,8 @@ import compiler.exceptions.UnexpectedTokenException;
 import compiler.exceptions.UnexpectedTokensException;
 import compiler.exceptions.VariableAlreadyDeclaredException;
 import compiler.exceptions.VariableNotDeclaredException;
+import compiler.postfix.InfixToPostfix;
+import compiler.postfix.Token;
 import compiler.symboltable.SymbolInfo;
 import compiler.symboltable.SymbolTable;
 import compiler.symboltable.SymbolType;
@@ -53,16 +51,16 @@ import requirement.requirements.StringType;
 
 /**
  * A Compiler for the high-level language. It defines the {@code static} method
- * {@link SML_Compiler#compile compile} which generates machine code
- * instructions for a high-level-language program. The Compiler is
- * {@code stateless} meaning that no information is stored between compilations
- * and that an instance of a Compiler is not necessary to compile a program.
- * Before each call to {@code compile} the Compiler is automatically reset.
+ * {@link #compile} which generates machine code instructions for a high-level
+ * language program. The Compiler is {@code stateless} meaning that no
+ * information is stored between compilations and that an instance of a Compiler
+ * is not necessary to compile a program. Each call to {@code compile} creates a
+ * new Compiler instance therefore there aren't any synchronisation issues.
  * <p>
  * The compilation uses {@link requirement.requirements.AbstractRequirement
  * Requirements} in order to specify different parameters. They can be obtained
- * with the {@link SML_Compiler#getRequirements() getRequriements()} method,
- * which contains more information about each individual Requirement.
+ * with the {@link #getRequirements()} method, which contains more information
+ * about each individual Requirement.
  *
  * @author Alex Mandelias
  */
@@ -71,11 +69,13 @@ public class SML_Compiler {
 	private static final Collection<String> keywords = new HashSet<>();
 
 	static {
-		keywords.addAll(Arrays.asList(ADD.value, SUB.value, MUL.value, DIV.value, POW.value, MOD.value, "="));
-		for (Statement s : Statement.values())
-			keywords.add(s.identifier);
-		for (Condition s : Condition.values())
-			keywords.add(s.value);
+		SML_Compiler.keywords.addAll(Arrays.asList(Token.ADD.value, Token.SUB.value,
+		        Token.MUL.value, Token.DIV.value, Token.POW.value, Token.MOD.value, "="));
+
+		for (final Condition s : Condition.values())
+			SML_Compiler.keywords.add(s.value);
+
+		SML_Compiler.keywords.add("jumpto");
 	}
 
 	private final SymbolTable          symbolTable;
@@ -95,10 +95,10 @@ public class SML_Compiler {
 	/* Don't let anyone instantiate this class */
 	private SML_Compiler() {
 		symbolTable = new SymbolTable();
-		memory      = new Memory(256);
-		program     = new StringBuilder();
-		labelFlags    = new HashMap<>();
-		blockStack  = new Stack<>();
+		memory = new Memory(256);
+		program = new StringBuilder();
+		labelFlags = new HashMap<>();
+		blockStack = new Stack<>();
 	}
 
 	/**
@@ -107,26 +107,26 @@ public class SML_Compiler {
 	 * starting with a single dash '-' are set to {@code true}. Parameters starting
 	 * with a double dash '--' are set to whatever the next argument is.
 	 * <p>
-	 * The different parameters are documented in the
-	 * {@link SML_Compiler#getRequirements() getRequirements()} method.
+	 * The different parameters are documented in the {@link #getRequirements()}
+	 * method.
 	 *
 	 * @param args the command line arguments
 	 */
 	public static void main(String[] args) {
 
-		Requirements reqs = getRequirements();
+		final Requirements reqs = SML_Compiler.getRequirements();
 
-		for (int i = 0, count = args.length; i < count; ++i) {
+		for (int i = 0, count = args.length; i < count; ++i)
 			if (args[i].startsWith("--"))
 				reqs.fulfil(args[i].substring(2), args[++i]);
 			else if (args[i].startsWith("-"))
 				reqs.fulfil(args[i].substring(1), true);
 			else
-				err("Invalid parameter: %s. Parameters must start with either one '-' or two '--' dashes.",
-						args[i]);
-		}
+				SML_Compiler.err(
+				        "Invalid parameter: %s. Parameters must start with either one '-' or two '--' dashes.",
+				        args[i]);
 
-		compile(reqs);
+		SML_Compiler.compile(reqs);
 	}
 
 	/**
@@ -146,7 +146,7 @@ public class SML_Compiler {
 	 * @return the Requirements
 	 */
 	public static Requirements getRequirements() {
-		Requirements reqs = new Requirements();
+		final Requirements reqs = new Requirements();
 
 		reqs.add("input", StringType.ANY);
 		reqs.add("output", StringType.ANY);
@@ -167,31 +167,31 @@ public class SML_Compiler {
 	 * Uses the parameters from the {@code requirements} in order to load the
 	 * program, compile it and output the results.
 	 * <p>
-	 * The different Requirements are documented in the
-	 * {@link SML_Compiler#getRequirements() getRequirements()} method.
+	 * The different Requirements are documented in the {@link #getRequirements()}
+	 * method.
 	 *
 	 * @param requirements the parameters needed to compile
 	 */
 	public static void compile(Requirements requirements) {
 		if (!requirements.fulfilled()) {
-			for (AbstractRequirement r : requirements)
+			for (final AbstractRequirement r : requirements)
 				if (!r.fulfilled())
-					err("No value for parameter '%s' found", r.key());
+					SML_Compiler.err("No value for parameter '%s' found", r.key());
 
-			err("Compilation couldn't start due to missing parameters");
+			SML_Compiler.err("Compilation couldn't start due to missing parameters");
 			return;
 		}
 
-		SML_Compiler compiler = new SML_Compiler();
+		final SML_Compiler compiler = new SML_Compiler();
 
-		CompilationData data = new CompilationData();
+		final CompilationData data = new CompilationData();
 
 
-		String  input   = (String) requirements.getValue("input");
-		String  output  = (String) requirements.getValue("output");
-		boolean screen  = (boolean) requirements.getValue("screen");
-		boolean st      = (boolean) requirements.getValue("st");
-		boolean verbose = (boolean) requirements.getValue("verbose");
+		final String  input   = (String) requirements.getValue("input");
+		final String  output  = (String) requirements.getValue("output");
+		final boolean screen  = (boolean) requirements.getValue("screen");
+		final boolean st      = (boolean) requirements.getValue("st");
+		final boolean verbose = (boolean) requirements.getValue("verbose");
 
 		data.inputFileName = input.equals("stdin") ? "<stdin>" : input;
 		data.success = true;
@@ -210,66 +210,68 @@ public class SML_Compiler {
 
 			if (data.success) {
 				if (output.equals("stdout")) {
-					out("The following memory dump is suitable for execution.%n-------");
+					SML_Compiler
+					        .out("The following memory dump is suitable for execution.%n-------");
 					compiler.writeResultsToStdout(true);
 				} else
 					compiler.writeResultsToFile(new File(output));
 
 				if (screen) {
-					out("The following memory dump is NOT suitable for execution.%n-------");
+					SML_Compiler.out(
+					        "The following memory dump is NOT suitable for execution.%n-------");
 					compiler.writeResultsToStdout(false);
-					out("-------%n");
+					SML_Compiler.out("-------%n");
 				}
 			}
 
 			if (st)
-				out("Symbol Table:%n%s", compiler.symbolTable);
+				SML_Compiler.out("Symbol Table:%n%s", compiler.symbolTable);
 
 		} else {
 
 			// === VERBOSE COMPILATION ===
 
 			if (input.equals("stdin")) {
-				out("Loading program from Standard Input");
-				out("The line number for each statement will be printed");
-				out("Type 'end' to stop inputting code");
+				SML_Compiler.out("Loading program from Standard Input");
+				SML_Compiler.out("The line number for each statement will be printed");
+				SML_Compiler.out("Type 'end' to stop inputting code");
 				compiler.loadProgramFromStdin();
 			} else {
-				out("Loading program from file: %s", input);
+				SML_Compiler.out("Loading program from file: %s", input);
 				compiler.loadProgramFromFile(new File(input));
 			}
-			out("Progarm loading completed");
+			SML_Compiler.out("Progarm loading completed");
 
-			out("Compilation started");
+			SML_Compiler.out("Compilation started");
 			compiler.pass1(data);
 
-			out("Completing goto instructions");
+			SML_Compiler.out("Completing goto instructions");
 			compiler.pass2(data);
 
-			out("Compilation ended");
+			SML_Compiler.out("Compilation ended");
 
 			if (data.success) {
 				if (output.equals("stdout")) {
-					out("Generated machine code (suitable for execution):");
+					SML_Compiler.out("Generated machine code (suitable for execution):");
 					compiler.writeResultsToStdout(true);
 				} else {
-					out("Writing generated machine code to file: %s", output);
+					SML_Compiler.out("Writing generated machine code to file: %s", output);
 					compiler.writeResultsToFile(new File(output));
 				}
 
 				if (screen) {
-					out("Generated machine code (NOT suitable for execution):");
+					SML_Compiler.out("Generated machine code (NOT suitable for execution):");
 					compiler.writeResultsToStdout(false);
 				}
 			}
 
 			if (st)
-				out("Symbol Table:%n%s", compiler.symbolTable);
+				SML_Compiler.out("Symbol Table:%n%s", compiler.symbolTable);
 
 			if (data.success)
-				out("Compilation succeeded :)");
+				SML_Compiler.out("Compilation succeeded :)");
 			else
-				out("Compilation failed :(");
+				SML_Compiler.out("Compilation failed :(");
 		}
 	}
 
@@ -278,14 +280,14 @@ public class SML_Compiler {
 
 		memory.initializeForWriting();
 
-		StringTokenizer lineTokenizer = new StringTokenizer(program.toString(), System.lineSeparator());
+		final StringTokenizer lineTokenizer = new StringTokenizer(program.toString(),
+		        System.lineSeparator());
 
 		String    line = "";
 		String[]  tokens;
 		Statement statement;
 
-		next_line: while (lineTokenizer.hasMoreTokens()) {
-
+		next_line: while (lineTokenizer.hasMoreTokens())
 			try {
 
 				// get line and remove extra whitespace
@@ -298,8 +300,9 @@ public class SML_Compiler {
 				tokens = line.split(" ");
 
 				// handle line number
-				String lineNo = tokens[0];
-				if (!isNumber(lineNo))
+				final String lineNo = tokens[0];
+				data.variable = lineNo;
+				if (!SML_Compiler.isLine(lineNo))
 					throw new InvalidLineNameException(lineNo);
 
 				data.lineNumber = Integer.parseInt(lineNo);
@@ -313,20 +316,21 @@ public class SML_Compiler {
 				// handle constructors (int etc. declarations)
 				if (statement.isConstructor) {
 					for (int i = 2, count = tokens.length; i < count; ++i) {
-						String var = tokens[i];
+						final String var = tokens[i];
 						data.variable = var;
 
 						if (statement == Statement.LABEL) {
 							if (tokens.length > Statement.LABEL.length)
-								throw new UnexpectedTokensException(data.originalLine.substring(find(data)));
+								throw new UnexpectedTokensException(
+								        data.originalLine.substring(SML_Compiler.find(data)));
 
-							if (!isLabelName(var))
+							if (!SML_Compiler.isLabelName(var))
 								throw new InvalidLabelNameException(var);
 
 							if (labelDeclared(var))
 								throw new LabelAlreadyDeclaredException(var);
 						} else {
-							if (!isVariableName(var))
+							if (!SML_Compiler.isVariableName(var))
 								throw new InvalidVariableNameException(var);
 
 							if (variableDeclared(var))
@@ -337,85 +341,96 @@ public class SML_Compiler {
 					statement.evaluate(line, this);
 					continue next_line;
 				}
-
-				// handle non-constructors
-				/*
-				 * If the statement is not a comment, assert correct number of tokens, every
-				 * variable is declared and declare constants if needed. Declaring every number
-				 * found as a constant has the unfortunate side effect of treating line numbers
-				 * in goto statements as constants. For example, the statements `10 goto 5` and
-				 * `15 ifg a > b goto 5` would both declare a constant of value `5`. To fix
-				 * this, a more elaborate and statement-specific parsing is required.
-				 */
 				if (!statement.equals(COMMENT)) {
-					int expectedCount = statement.length;
+					final int expectedCount = statement.length;
 
-					if ((expectedCount != -1) && (expectedCount < tokens.length)) {
-						data.variable = tokens[expectedCount];
-						throw new UnexpectedTokensException(data.originalLine.substring(find(data)));
+					if (expectedCount != -1) {
+						if (expectedCount < tokens.length) {
+							data.variable = tokens[expectedCount];
+							throw new UnexpectedTokensException(
+							        data.originalLine.substring(SML_Compiler.find(data)));
+						}
+						if (expectedCount > tokens.length) {
+							data.variable = tokens[tokens.length - 1];
+							throw new UnexpectedTokenException("", "more tokens");
+						}
 					}
 
-					int tokensToScan = expectedCount == -1 ? tokens.length
-							: expectedCount;
+					// obtain tokens to scan according to statement (LET or otherwise)
 
-					for (int i = 2, count = tokensToScan; i < count; ++i) {
-						String var = tokens[i];
+					final String[] tokensToScan;
+					if (statement.equals(LET)) {
+						final List<Token> infixTokens = InfixToPostfix
+						        .convertToPostfix(line.split("=")[1]);
+						infixTokens.removeIf(Token::isOperatorOrParenthesis);
+
+						tokensToScan = new String[infixTokens.size()];
+						int i = 0;
+						for (final Token token : infixTokens) {
+							tokensToScan[i] = token.value;
+							++i;
+						}
+					} else {
+						tokensToScan = new String[tokens.length - 2];
+						System.arraycopy(tokens, 2, tokensToScan, 0, tokensToScan.length);
+					}
+
+					next_token: for (int i = 0, count = tokensToScan.length; i < count; ++i) {
+						final String var = tokensToScan[i];
 						data.variable = var;
 
+						if (SML_Compiler.keywords.contains(var))
+							continue next_token;
+
+						final SymbolType type = SymbolType.typeOf(var);
+
 						// declare constants, assert variables and labels are declared
-						if (isNumber(var)) {
+						switch (type) {
+						case CONSTANT:
 							if (!constantDeclared(var))
 								declareConstant(var, INT.identifier);
-
-						} else if (isVariableName(var)) {
+							break;
+						case VARIABLE:
 							if (!variableDeclared(var))
 								throw new VariableNotDeclaredException(var);
-
-						} else if (isLabelName(var)) {
+							break;
+						case LABEL:
 							/*
-							 * because goto instructions may jump to a label further down the program, it is
-							 * not necessary for labels to be declared
+							 * because goto instructions may jump to a label further down the
+							 * program, it is not necessary for labels to be declared
 							 */
-
-						} else if (keywords.contains(var)) {
-							// dismiss keywords
-
-						} else {
-							if (!statement.equals(LET))
-								throw new RuntimeException("the fuck how did we get here");
+							break;
+						default:
+							break;
 						}
 					}
 				}
 
-				/*
-				 * at this point: - all variables are declared - all constants are set - all
-				 * lines exist
-				 */
+				// at this point are variables and constants are declared
 
 				// statement-specific checks
-				if (statement == Statement.END) {
-					if (!blockStack.empty())
-						throw new UnclosedBlockException(blockStack.pop());
-				}
+				if ((statement == Statement.END) && !blockStack.empty())
+					throw new UnclosedBlockException(blockStack.pop());
 
 				// actually write machine code for each command
 				statement.checkSyntax(line);
 				statement.evaluate(line, this);
 
 			} // end try (one statement / one line)
-			catch (CompilerException e) {
-				err("at: %s:%02d:%02d: %s", data.inputFileName, data.lineNumber,
-						find(data), e.getMessage());
+			catch (final CompilerException e) {
+				SML_Compiler.err("at: %s:%02d:%02d: %s", data.inputFileName, data.lineNumber,
+				        SML_Compiler.find(data), e.getMessage());
 				data.success = false;
+			} catch (final EmptyStackException e1) {
+
 			}
-		} // end of while
 	} // end of pass1
 
 	private void pass2(CompilationData data) {
-		for (Entry<Integer, String> entry : labelFlags.entrySet()) {
+		for (final Entry<Integer, String> entry : labelFlags.entrySet()) {
 
-			int    instructionAddress = entry.getKey();
-			String labelToJump = entry.getValue();
+			final int    instructionAddress = entry.getKey();
+			final String labelToJump        = entry.getValue();
 
 			try {
 				data.variable = labelToJump;
@@ -423,13 +438,13 @@ public class SML_Compiler {
 				if (!labelDeclared(labelToJump))
 					throw new LabelNotDeclaredException(labelToJump);
 
-				int location = getLabel(labelToJump).location;
-				int instruction = memory.read(instructionAddress);
+				final int location    = getLabel(labelToJump).location;
+				final int instruction = memory.read(instructionAddress);
 				memory.write(instructionAddress, instruction + location);
 
-			} catch (CompilerException e) {
-				err("at: %s:%02d:%02d: %s", data.inputFileName, data.lineNumber,
-						find(data), e.getMessage());
+			} catch (final CompilerException e) {
+				SML_Compiler.err("at: %s:%02d:%02d: %s", data.inputFileName, data.lineNumber,
+				        SML_Compiler.find(data), e.getMessage());
 				data.success = false;
 			}
 		}
@@ -439,7 +454,7 @@ public class SML_Compiler {
 
 	private void loadProgramFromStdin() {
 		@SuppressWarnings("resource")
-		Scanner scanner = new Scanner(System.in);
+		final Scanner scanner = new Scanner(System.in);
 		program.setLength(0);
 
 		String userInput = "";
@@ -457,29 +472,29 @@ public class SML_Compiler {
 
 	private void loadProgramFromFile(File file) {
 		program.setLength(0);
-		String lineSep = System.lineSeparator();
+		final String lineSep = System.lineSeparator();
 
 		try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
 			for (String line = reader.readLine(); line != null; line = reader.readLine())
 				program.append(line).append(lineSep);
 
-		} catch (FileNotFoundException e) {
-			err("Couldn't find file: %s", file);
-		} catch (IOException e) {
-			err("Unexpected error while reading from file: %s", file);
+		} catch (final FileNotFoundException e) {
+			SML_Compiler.err("Couldn't find file: %s", file);
+		} catch (final IOException e) {
+			SML_Compiler.err("Unexpected error while reading from file: %s", file);
 		}
 	}
 
 	private void writeResultsToStdout(boolean suitableForExecution) {
-		out("%n%s", suitableForExecution ? memory.list() : memory.listShort());
+		SML_Compiler.out("%n%s", suitableForExecution ? memory.list() : memory.listShort());
 	}
 
 	private void writeResultsToFile(File file) {
 		try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
 			writer.write(memory.list());
 
-		} catch (IOException e) {
-			err("Unexpected error while writing to file: %s", file);
+		} catch (final IOException e) {
+			SML_Compiler.err("Unexpected error while writing to file: %s", file);
 		}
 	}
 
@@ -539,7 +554,7 @@ public class SML_Compiler {
 	 * @return the location of the declared variable in memory
 	 */
 	int declareVariable(String symbol, String varType) {
-		int location = addVariable();
+		final int location = addVariable();
 		symbolTable.addEntry(symbol, VARIABLE, location, varType);
 		return location;
 	}
@@ -555,7 +570,7 @@ public class SML_Compiler {
 	 * @return the location of the declared constant in memory
 	 */
 	int declareConstant(String symbol, String varType) {
-		int location = addConstant(Integer.parseInt(symbol));
+		final int location = addConstant(Integer.parseInt(symbol));
 		symbolTable.addEntry(symbol, CONSTANT, location, varType);
 		return location;
 	}
@@ -569,7 +584,7 @@ public class SML_Compiler {
 	 *         first instruction corresponding to this label
 	 */
 	int declareLabel(String symbol) {
-		int location = memory.getInstructionCounter();
+		final int location = memory.getInstructionCounter();
 		symbolTable.addEntry(symbol, LABEL, location, "");
 		return location;
 	}
@@ -724,6 +739,8 @@ public class SML_Compiler {
 	 * Retrieves the most recently added {@code Block} from the stack.
 	 *
 	 * @return the block
+	 *
+	 * @throws EmptyStackException if the stack of Blocks is empty
 	 */
 	Block popBlock() {
 		return blockStack.pop();
@@ -732,15 +749,15 @@ public class SML_Compiler {
 	// --- 3 methods for defining variables, constants and labels ---
 
 	private static boolean isVariableName(String var) {
-		return var.matches("[a-zA-Z]\\w*") && !keywords.contains(var);
+		return (SymbolType.typeOf(var) == VARIABLE) && !SML_Compiler.keywords.contains(var);
 	}
 
 	private static boolean isLabelName(String var) {
-		return var.matches(":\\w*") && !keywords.contains(var);
+		return (SymbolType.typeOf(var) == LABEL) && !SML_Compiler.keywords.contains(var);
 	}
 
-	private static boolean isNumber(String con) {
-		return con.matches("[1-9]\\d*");
+	private static boolean isLine(String con) {
+		return con.matches("\\d+");
 	}
 
 	// --- idk really ---
