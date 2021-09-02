@@ -1,14 +1,14 @@
 package compiler.exceptions;
 
 /**
- * Thrown when an already-declared variable is re-declared.
+ * Thrown when an already-declared Variable is re-declared.
  *
  * @author Alex Mandelias
  */
 public class VariableAlreadyDeclaredException extends CompilerException {
 
 	/**
-	 * Constructs the exception with the {@code variable} that was already declared.
+	 * Constructs the exception with a {@code variable}.
 	 *
 	 * @param variable the variable that was already declared
 	 */
