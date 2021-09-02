@@ -1,6 +1,6 @@
 package compiler;
 
-import java.util.Arrays;
+import java.util.EmptyStackException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +11,7 @@ import compiler.blocks.WhileBlock;
 import compiler.exceptions.CompilerException;
 import compiler.exceptions.InvalidConditionException;
 import compiler.exceptions.InvalidStatementException;
+import compiler.exceptions.NoBlockException;
 import compiler.exceptions.UnexpectedTokenException;
 import compiler.postfix.InfixToPostfix;
 import compiler.postfix.PostfixEvaluator;
@@ -22,9 +23,9 @@ import runtime.Instruction;
 
 /**
  * A collection of the different statements that are supported by the high-level
- * language. Each statement evaluates a line of high-level code assuming both
- * that it is syntactically correct and that all variables and constants are
- * correctly declared.
+ * language. Each statement checks a line of high-level code for its syntax and
+ * also evaluates it assuming both that it is syntactically correct and that all
+ * variables and constants are correctly declared.
  *
  * @author Alex Mandelias
  */
@@ -33,7 +34,7 @@ enum Statement {
 	/** Comment */
 	COMMENT("//", -1, false) {
 		@Override
-		public void evaluate(String line, SML_Compiler compiler) {
+		public void evaluate(String line, SML_Compiler compiler) throws CompilerException {
 
 		}
 
@@ -46,7 +47,7 @@ enum Statement {
 	/** Declaration of integer variables */
 	INT("int", -1, true) {
 		@Override
-		public void evaluate(String line, SML_Compiler compiler) {
+		public void evaluate(String line, SML_Compiler compiler) throws CompilerException {
 			for (String var : vars(line))
 				compiler.declareVariable(var, identifier);
 		}
@@ -58,14 +59,17 @@ enum Statement {
 		}
 
 		private String[] vars(String line) {
-			return Arrays.asList(line.split(" ")).subList(2, line.split(" ").length).toArray(String[]::new);
+			String[] tokens = line.split(" ");
+			String[] vars   = new String[tokens.length - 2];
+			System.arraycopy(tokens, 2, vars, 0, vars.length);
+			return vars;
 		}
 	},
 
 	/** Prompt the user for input */
 	INPUT("input", -1, false) {
 		@Override
-		public void evaluate(String line, SML_Compiler compiler) {
+		public void evaluate(String line, SML_Compiler compiler) throws CompilerException {
 			for (final String var : vars(line)) {
 				final int location = compiler.getVariable(var).location;
 				compiler.addInstruction(Instruction.READ_INT.opcode() + location);
@@ -79,14 +83,17 @@ enum Statement {
 		}
 
 		public String[] vars(String line) {
-			return Arrays.asList(line.split(" ")).subList(2, line.split(" ").length).toArray(String[]::new);
+			String[] tokens = line.split(" ");
+			String[] vars   = new String[tokens.length - 2];
+			System.arraycopy(tokens, 2, vars, 0, vars.length);
+			return vars;
 		}
 	},
 
 	/** Evaluate an expression and assign to variable */
 	LET("let", -1, false) {
 		@Override
-		public void evaluate(String line, SML_Compiler compiler) {
+		public void evaluate(String line, SML_Compiler compiler) throws CompilerException {
 			// generate postfix
 			final String      infix   = infix(line);
 			final List<Token> postfix = InfixToPostfix.convertToPostfix(infix);
@@ -117,9 +124,8 @@ enum Statement {
 			final List<Token> postfix = InfixToPostfix.convertToPostfix(infix(line));
 
 			for (Token token : postfix) {
-				if (!token.isOperator() || (token == Token.LEFT_PAREN) || (token == Token.RIGHT_PAREN)) {
-					SymbolType.assertNot(token.value, SymbolType.LABEL);
-				}
+				if (!token.isOperatorOrParenthesis())
+					SymbolType.assertTypeNot(token.value, SymbolType.LABEL);
 			}
 		}
 
@@ -135,7 +141,7 @@ enum Statement {
 	/** Print the value of a variable to the screen */
 	PRINT("print", -1, false) {
 		@Override
-		public void evaluate(String line, SML_Compiler compiler) {
+		public void evaluate(String line, SML_Compiler compiler) throws CompilerException {
 			for (final String var : vars(line)) {
 				final SymbolInfo info = compiler.getSymbol(var);
 
@@ -150,18 +156,21 @@ enum Statement {
 		@Override
 		public void checkSyntax(String line) throws CompilerException {
 			for (String var : vars(line))
-				SymbolType.assertNot(var, SymbolType.LABEL);
+				SymbolType.assertTypeNot(var, SymbolType.LABEL);
 		}
 
 		private String[] vars(String line) {
-			return Arrays.asList(line.split(" ")).subList(2, line.split(" ").length).toArray(String[]::new);
+			String[] tokens = line.split(" ");
+			String[] vars   = new String[tokens.length - 2];
+			System.arraycopy(tokens, 2, vars, 0, vars.length);
+			return vars;
 		}
 	},
 
 	/** Define a label (location to jump to) */
 	LABEL("label", 3, true) {
 		@Override
-		public void evaluate(String line, SML_Compiler compiler) {
+		public void evaluate(String line, SML_Compiler compiler) throws CompilerException {
 			compiler.declareLabel(labelToJump(line));
 		}
 
@@ -178,7 +187,7 @@ enum Statement {
 	/** Unconditional jump to line */
 	GOTO("goto", 3, false) {
 		@Override
-		public void evaluate(String line, SML_Compiler compiler) {
+		public void evaluate(String line, SML_Compiler compiler) throws CompilerException {
 			final int location = compiler.addInstruction(Instruction.BRANCH.opcode());
 			final String labelToJump = labelToJump(line);
 
@@ -198,7 +207,7 @@ enum Statement {
 	/** Conditional jump to line */
 	IFGOTO("ifg", 7, false) {
 		@Override
-		public void evaluate(String line, SML_Compiler compiler) {
+		public void evaluate(String line, SML_Compiler compiler) throws CompilerException {
 
 			int       loc1, loc2;
 			Condition condition;
@@ -268,14 +277,14 @@ enum Statement {
 
 		@Override
 		public void checkSyntax(String line) throws CompilerException {
-			SymbolType.assertNot(op1(line), SymbolType.LABEL);
-			SymbolType.assertNot(op2(line), SymbolType.LABEL);
+			SymbolType.assertTypeNot(op1(line), SymbolType.LABEL);
+			SymbolType.assertTypeNot(op2(line), SymbolType.LABEL);
 			SymbolType.assertType(labelToJump(line), SymbolType.LABEL);
 			Condition.of(condition(line));
 
-			String goto_ = line.split(" ")[5];
-			if (!goto_.split(" ")[5].equals("goto"))
-				throw new UnexpectedTokenException(goto_, "goto");
+			String jumpto = line.split(" ")[5];
+			if (!jumpto.equals("jumpto"))
+				throw new UnexpectedTokenException(jumpto, "jumpto");
 		}
 
 		private String op1(String line) {
@@ -298,7 +307,7 @@ enum Statement {
 	/** Beginning of {@code if} block */
 	IF("if", 5, false) {
 		@Override
-		public void evaluate(String line, SML_Compiler compiler) {
+		public void evaluate(String line, SML_Compiler compiler) throws CompilerException {
 
 			final IfBlock block = new IfBlock();
 
@@ -360,8 +369,8 @@ enum Statement {
 
 		@Override
 		public void checkSyntax(String line) throws CompilerException {
-			SymbolType.assertNot(op1(line), SymbolType.LABEL);
-			SymbolType.assertNot(op2(line), SymbolType.LABEL);
+			SymbolType.assertTypeNot(op1(line), SymbolType.LABEL);
+			SymbolType.assertTypeNot(op2(line), SymbolType.LABEL);
 			Condition.of(condition(line));
 		}
 
@@ -381,8 +390,16 @@ enum Statement {
 	/** Beginning of {@code else} block and end of {@code if} block */
 	ELSE("else", 2, false) {
 		@Override
-		public void evaluate(String line, SML_Compiler compiler) {
-			final IfBlock oldBlock = (IfBlock) compiler.popBlock();
+		public void evaluate(String line, SML_Compiler compiler) throws CompilerException {
+			final IfBlock oldBlock;
+			try {
+				oldBlock = (IfBlock) compiler.popBlock();
+			} catch (ClassCastException e) {
+				throw new NoBlockException(new IfBlock());
+
+			} catch (EmptyStackException e) {
+				throw new NoBlockException(new IfBlock());
+			}
 
 			final int locationOfBranchToEnd = oldBlock.locationOfBranchToEndOfBlock;
 			final int locationOfEnd         = compiler.addInstruction(Instruction.BRANCH.opcode());
@@ -403,8 +420,18 @@ enum Statement {
 	/** End of {@code if} or {@code else} block */
 	ENDIF("endif", 2, false) {
 		@Override
-		public void evaluate(String line, SML_Compiler compiler) {
-			final IfBlock block = (IfBlock) compiler.popBlock();
+		public void evaluate(String line, SML_Compiler compiler) throws CompilerException {
+
+			final IfBlock block;
+			try {
+				block = (IfBlock) compiler.popBlock();
+			} catch (ClassCastException e) {
+				throw new NoBlockException(new IfBlock());
+
+			} catch (EmptyStackException e) {
+				throw new NoBlockException(new IfBlock());
+			}
+
 			final int     locationOfBranchToEnd = block.locationOfBranchToEndOfBlock;
 
 			// dummy command just to get the location of endif
@@ -421,7 +448,7 @@ enum Statement {
 	/** Start of {@code while} block */
 	WHILE("while", 5, false) {
 		@Override
-		public void evaluate(String line, SML_Compiler compiler) {
+		public void evaluate(String line, SML_Compiler compiler) throws CompilerException {
 
 			final WhileBlock block = new WhileBlock();
 
@@ -485,8 +512,8 @@ enum Statement {
 
 		@Override
 		public void checkSyntax(String line) throws CompilerException {
-			SymbolType.assertNot(op1(line), SymbolType.LABEL);
-			SymbolType.assertNot(op2(line), SymbolType.LABEL);
+			SymbolType.assertTypeNot(op1(line), SymbolType.LABEL);
+			SymbolType.assertTypeNot(op2(line), SymbolType.LABEL);
 			Condition.of(condition(line));
 		}
 
@@ -506,9 +533,17 @@ enum Statement {
 	/** End of while block */
 	ENDWHILE("endwhile", 2, false) {
 		@Override
-		public void evaluate(String line, SML_Compiler compiler) {
+		public void evaluate(String line, SML_Compiler compiler) throws CompilerException {
 
-			final WhileBlock block = (WhileBlock) compiler.popBlock();
+			final WhileBlock block;
+			try {
+				block = (WhileBlock) compiler.popBlock();
+			} catch (ClassCastException e) {
+				throw new NoBlockException(new WhileBlock());
+
+			} catch (EmptyStackException e) {
+				throw new NoBlockException(new WhileBlock());
+			}
 
 			final int whileStartLocation = block.locationOfFirstInstruction;
 			final int whileEndLocation = compiler.addInstruction(Instruction.BRANCH.opcode() + whileStartLocation);
@@ -527,7 +562,7 @@ enum Statement {
 	/** End of program */
 	END("end", 2, false) {
 		@Override
-		public void evaluate(String line, SML_Compiler compiler) {
+		public void evaluate(String line, SML_Compiler compiler) throws CompilerException {
 			compiler.addInstruction(Instruction.HALT.opcode());
 		}
 
@@ -540,7 +575,7 @@ enum Statement {
 	/** No-operation */
 	NOOP("noop", 2, false) {
 		@Override
-		public void evaluate(String line, SML_Compiler compiler) {
+		public void evaluate(String line, SML_Compiler compiler) throws CompilerException {
 			compiler.addInstruction(Instruction.NOOP.opcode());
 		}
 
@@ -553,7 +588,7 @@ enum Statement {
 	/** Dump memory contents to screen */
 	DUMP("dump", 2, false) {
 		@Override
-		public void evaluate(String line, SML_Compiler compiler) {
+		public void evaluate(String line, SML_Compiler compiler) throws CompilerException {
 			compiler.addInstruction(Instruction.DUMP.opcode());
 		}
 
@@ -595,9 +630,19 @@ enum Statement {
 	 *
 	 * @param line     a line of high-level code
 	 * @param compiler the compiler for which to generate machine code
+	 * @throws CompilerException TODO
 	 */
-	public abstract void evaluate(String line, SML_Compiler compiler);
+	public abstract void evaluate(String line, SML_Compiler compiler) throws CompilerException;
 
+	/**
+	 * Checks if the syntax of the {@code line} is correct for this Statement. This
+	 * method should be called before the {@code evaluate} method since it assumes
+	 * that the syntax is correct.
+	 *
+	 * @param line the line of high-level-language code
+	 *
+	 * @throws CompilerException if the syntax is not correct
+	 */
 	public abstract void checkSyntax(String line) throws CompilerException;
 
 	/**
