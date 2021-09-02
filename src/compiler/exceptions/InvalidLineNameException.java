@@ -11,7 +11,7 @@ public class InvalidLineNameException extends CompilerException {
 	/**
 	 * Constructs the exception with a {@code symbol}.
 	 *
-	 * @param line the symbol that isn't a valid line name.
+	 * @param line the symbol that isn't a valid Line name.
 	 */
 	public InvalidLineNameException(String line) {
 		super("'%s' is not a valid line name", line);
