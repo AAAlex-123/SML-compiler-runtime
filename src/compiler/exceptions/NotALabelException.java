@@ -8,10 +8,9 @@ package compiler.exceptions;
 public class NotALabelException extends CompilerException {
 
 	/**
-	 * Constructs the exception with information about the {@code symbol} that isn't
-	 * a Label.
+	 * Constructs the exception with a {@code symbol}.
 	 *
-	 * @param symbol the symbol that isn't a label
+	 * @param symbol the symbol that isn't a Label
 	 */
 	public NotALabelException(String symbol) {
 		super("'%s' is not a label", symbol);
