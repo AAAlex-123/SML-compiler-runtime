@@ -7,7 +7,7 @@ import compiler.exceptions.InvalidConditionException;
 
 /**
  * The comparison operators that can appear in the expressions that evaluate the
- * condition of an {@code if} or a {@code while} block.
+ * condition of an {@code if-goto}, {@code if} or a {@code while} block.
  *
  * @author Alex Mandelias
  */
