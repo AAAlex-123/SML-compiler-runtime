@@ -33,8 +33,8 @@ public class SymbolTable {
 	 * @param varType  the varType
 	 */
 	public void addEntry(String symbol, SymbolType type, int location, String varType) {
-		SymbolInfo value = new SymbolInfo(symbol, type, location, varType);
-		SymbolKey  key   = value.key();
+		final SymbolInfo value = new SymbolInfo(symbol, type, location, varType);
+		final SymbolKey  key   = value.key();
 
 		if (existsSymbol(key.symbol, key.type))
 			throw new DuplicateSymbolException(key);
@@ -79,7 +79,7 @@ public class SymbolTable {
 	public SymbolInfo getSymbol(String symbol, SymbolType... types) {
 		SymbolInfo info = null;
 
-		for (SymbolType type : types)
+		for (final SymbolType type : types)
 			if ((info = map.get(new SymbolKey(symbol, type))) != null)
 				break;
 
@@ -96,10 +96,10 @@ public class SymbolTable {
 
 	@Override
 	public String toString() {
-		StringBuilder sb = new StringBuilder(
+		final StringBuilder sb = new StringBuilder(
 		        String.format("%12s%12s%12s%12s\n", "Symbol", "Type", "Location", "Var_Type"));
 
-		for (SymbolInfo info : map.values())
+		for (final SymbolInfo info : map.values())
 			sb.append(info).append(System.lineSeparator());
 
 		return sb.toString();
