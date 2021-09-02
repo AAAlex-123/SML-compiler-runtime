@@ -9,6 +9,7 @@ import java.util.Stack;
 
 import compiler.SML_Compiler;
 import compiler.symboltable.SymbolTable;
+import compiler.symboltable.SymbolType;
 import runtime.Instruction;
 
 /**
@@ -45,7 +46,8 @@ public final class PostfixEvaluator {
 	 *
 	 * @return the list of instructions
 	 */
-	public static List<Integer> evaluatePostfix(List<Token> postfix, SymbolTable symbolTable, SML_Compiler compiler) {
+	public static List<Integer> evaluatePostfix(List<Token> postfix, SymbolTable symbolTable,
+	        SML_Compiler compiler) {
 
 		final List<Integer>  instructionList = new ArrayList<>();
 		final Stack<Integer> stack           = new Stack<>();
@@ -78,20 +80,11 @@ public final class PostfixEvaluator {
 	}
 
 	private static boolean isConstant(Token token) {
-		return PostfixEvaluator.isNumber(token);
+		return SymbolType.typeOf(token.value) == CONSTANT;
 	}
 
 	private static boolean isVariable(Token token) {
 		return !PostfixEvaluator.isConstant(token) && !token.isOperator();
-	}
-
-	private static boolean isNumber(Token token) {
-		try {
-			Integer.parseInt(token.value);
-			return true;
-		} catch (final NumberFormatException e) {
-			return false;
-		}
 	}
 
 	private static Instruction getInstructionFromToken(Token token) {
