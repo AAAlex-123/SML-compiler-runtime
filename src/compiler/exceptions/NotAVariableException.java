@@ -8,13 +8,12 @@ package compiler.exceptions;
 public class NotAVariableException extends CompilerException {
 
 	/**
-	 * Constructs the exception with information about the {@code symbol} that isn't
-	 * a Variable.
+	 * Constructs the exception with a {@code symbol}.
 	 *
-	 * @param symbol the symbol that isn't a variable
+	 * @param symbol the symbol that isn't a Variable
 	 */
 	public NotAVariableException(String symbol) {
 		super("'%s' is not a variable", symbol);
 	}
 }
-	
+
