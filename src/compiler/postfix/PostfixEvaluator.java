@@ -9,13 +9,14 @@ import java.util.Stack;
 
 import compiler.SML_Compiler;
 import compiler.symboltable.SymbolTable;
+import compiler.symboltable.SymbolType;
 import runtime.Instruction;
 
 /**
  * Defines the static method
- * {@link PostfixEvaluator#evaluatePostfix(List, SymbolTable)
- * evaluatePostfix(List, SymbolTable)} which returns the machine language
- * {@link runtime.Instruction instructions} that evaluate the postfix
+ * {@link PostfixEvaluator#evaluatePostfix(List, SymbolTable, SML_Compiler)
+ * evaluatePostfix(List, SymbolTable, SML_Copmiler)} which returns the machine
+ * language {@link runtime.Instruction instructions} that evaluate the postfix
  * expression. A {@link SymbolTable} is used to access and allocate the correct
  * addresses during the evaluation.
  *
@@ -41,10 +42,12 @@ public final class PostfixEvaluator {
 	 * @param symbolTable the SymbolTable containing information about symbols of
 	 *                    the postfix expression, which will be used to store the
 	 *                    addresses of newly allocated variables
+	 * @param compiler    the compiler where the variables will be allocated
 	 *
 	 * @return the list of instructions
 	 */
-	public static List<Integer> evaluatePostfix(List<Token> postfix, SymbolTable symbolTable, SML_Compiler compiler) {
+	public static List<Integer> evaluatePostfix(List<Token> postfix, SymbolTable symbolTable,
+	        SML_Compiler compiler) {
 
 		final List<Integer>  instructionList = new ArrayList<>();
 		final Stack<Integer> stack           = new Stack<>();
@@ -77,20 +80,11 @@ public final class PostfixEvaluator {
 	}
 
 	private static boolean isConstant(Token token) {
-		return PostfixEvaluator.isNumber(token);
+		return SymbolType.typeOf(token.value) == CONSTANT;
 	}
 
 	private static boolean isVariable(Token token) {
 		return !PostfixEvaluator.isConstant(token) && !token.isOperator();
-	}
-
-	private static boolean isNumber(Token token) {
-		try {
-			Integer.parseInt(token.value);
-			return true;
-		} catch (final NumberFormatException e) {
-			return false;
-		}
 	}
 
 	private static Instruction getInstructionFromToken(Token token) {

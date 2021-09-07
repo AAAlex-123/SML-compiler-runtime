@@ -10,11 +10,10 @@ package compiler.blocks;
  * but not limited to, code within {@code if}, {@code else} and {@code while}
  * statements.
  * <p>
- * <b>Note:</b> this compiler was never meant to handle {@code if} and
- * {@code while} loops that require code to be treated as a block that is
- * repeated (as opposed to purely procedural code). This feature was the last to
- * be added and is therefore poorly implemented on top of the rest of the
- * compiler.
+ * <b>Note:</b> the compiler wasn't designed to handle {@code if} statements and
+ * {@code while} loops that require code to be treated as a block (as opposed to
+ * purely procedural code). This feature was the last to be added and is
+ * therefore poorly implemented on top of the rest of the compiler.
  *
  * @author Alex Mandelias
  */

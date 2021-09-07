@@ -8,7 +8,7 @@ package compiler.exceptions;
 public class VariableNotDeclaredException extends CompilerException {
 
 	/**
-	 * Constructs the exception with the {@code variable} that has not been declared
+	 * Constructs the exception with a {@code variable}.
 	 *
 	 * @param variable the variable that has not been declared
 	 */

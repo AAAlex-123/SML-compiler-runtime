@@ -10,7 +10,7 @@ public abstract class CompilerException extends Exception {
 
 	/**
 	 * Constructs the {@code CompilerException} by formatting the {@code text} with
-	 * the {@code args} are provided by the constructors of the concrete subclasses.
+	 * the {@code args}, which are provided by the constructors of the subclasses.
 	 *
 	 * @param text a short and descriptive message
 	 * @param args the format arguments

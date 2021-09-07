@@ -9,7 +9,7 @@ package compiler.symboltable;
 class SymbolKey {
 
 	/** The Symbol */
-	public final String     symbol;
+	public final String symbol;
 
 	/** The Type of the Symbol */
 	public final SymbolType type;
@@ -39,7 +39,7 @@ class SymbolKey {
 		if (!(other instanceof SymbolKey))
 			return false;
 
-		SymbolKey other1 = (SymbolKey) other;
+		final SymbolKey other1 = (SymbolKey) other;
 		return (other1.symbol.equals(symbol)) && (other1.type == type);
 	}
 

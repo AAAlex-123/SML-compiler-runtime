@@ -76,6 +76,17 @@ public class Token {
 		return Token.operators.contains(this);
 	}
 
+	/**
+	 * Returns whether or not this {@code Token} represents a mathematical operator
+	 * or a parenthesis.
+	 *
+	 * @return {@code true} if this Token is a mathematical operator or parenthesis,
+	 *         {@code false} otherwise
+	 */
+	public boolean isOperatorOrParenthesis() {
+		return isOperator() || (this == Token.LEFT_PAREN) || (this == Token.RIGHT_PAREN);
+	}
+
 	// instantiate only using the `of(String)` method
 	private Token(String value) {
 		this.value = value;

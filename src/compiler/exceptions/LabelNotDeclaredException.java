@@ -1,18 +1,18 @@
 package compiler.exceptions;
 
 /**
- * Thrown when a Variable that has not been declared is referenced.
+ * Thrown when a Label that has not been declared is referenced.
  *
  * @author Alex Mandelias
  */
 public class LabelNotDeclaredException extends CompilerException {
 
 	/**
-	 * Constructs the exception with the {@code variable} that has not been declared
+	 * Constructs the exception with a {@code label}.
 	 *
-	 * @param label the variable that has not been declared
+	 * @param label the label that has not been declared
 	 */
 	public LabelNotDeclaredException(String label) {
-		super("variable '%s' is not declared", label);
+		super("label '%s' is not declared", label);
 	}
 }

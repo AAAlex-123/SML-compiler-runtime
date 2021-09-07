@@ -73,7 +73,7 @@ public final class InfixToPostfix {
 		return false;
 	}
 
-	private static final String splitInfixToSymbolsRegex = "(?<=[^\\.a-zA-Z\\d])|(?=[^\\.a-zA-Z\\d])";
+	private static final String splitInfixToSymbolsRegex = "(?<=[^\\.:a-zA-Z\\d])|(?=[^\\.:a-zA-Z\\d])";
 
 	// returns a list of the Tokens found in the infix expression
 	private static List<Token> tokenise(String infix) {

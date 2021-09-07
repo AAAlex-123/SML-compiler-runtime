@@ -9,13 +9,11 @@ package compiler.exceptions;
 public class InvalidLineNameException extends CompilerException {
 
 	/**
-	 * Constructs the exception with the {@code symbol} that isn't a valid line
-	 * name.
+	 * Constructs the exception with a {@code symbol}.
 	 *
-	 * @param symbol the symbol that isn't a valid line name.
+	 * @param line the symbol that isn't a valid Line name.
 	 */
-	public InvalidLineNameException(String symbol) {
-		super("'%s' is not a valid line name", symbol);
+	public InvalidLineNameException(String line) {
+		super("'%s' is not a valid line name", line);
 	}
-
 }

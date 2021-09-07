@@ -14,7 +14,7 @@ package compiler.symboltable;
 public class SymbolInfo {
 
 	/** The {@code Symbol} found in a high-level-language statement */
-	public final String     symbol;
+	public final String symbol;
 
 	/** The {@code Type} of the symbol */
 	public final SymbolType type;
@@ -23,13 +23,13 @@ public class SymbolInfo {
 	 * The {@code location} of the symbol in the compiled program, its address in
 	 * memory during execution.
 	 */
-	public final int        location;
+	public final int location;
 
 	/** The type of the symbol, if it's a variable (int, string, etc.) */
-	public final String     varType;
+	public final String varType;
 
 	/**
-	 * Constructs the Table Entry.
+	 * Constructs the SymbolInfo object.
 	 *
 	 * @param symbol   the symbol
 	 * @param type     the type
@@ -59,12 +59,12 @@ public class SymbolInfo {
 		if (!(other instanceof SymbolInfo))
 			return false;
 
-		return this.key().equals(((SymbolInfo) other).key());
+		return key().equals(((SymbolInfo) other).key());
 	}
 
 	@Override
 	public int hashCode() {
-		return this.key().hashCode();
+		return key().hashCode();
 	}
 
 	@Override
