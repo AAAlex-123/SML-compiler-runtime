@@ -7,6 +7,8 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
 import java.util.Scanner;
 
 import memory.CodeReader;
@@ -15,6 +17,7 @@ import requirement.requirements.AbstractRequirement;
 import requirement.requirements.Requirements;
 import requirement.requirements.StringType;
 import runtime.exceptions.InvalidInstructionException;
+import utility.StreamSet;
 
 /**
  * An Executor for machine code. It defines the {@code static} method
@@ -33,6 +36,9 @@ import runtime.exceptions.InvalidInstructionException;
  */
 public class SML_Executor {
 
+	private final InputStream inputStream;
+	private final PrintStream outputStream, errorStream;
+
 	private final CodeReader memory;
 
 	/**
@@ -47,8 +53,35 @@ public class SML_Executor {
 	private int operand;
 	private boolean halt;
 
-	/* Don't let anyone instantiate this class */
-	private SML_Executor() {
+	/** Constructs an Executor with the "standard" in, out and error streams */
+	public SML_Executor() {
+		this(new StreamSet());
+	}
+
+	/**
+	 * Constructs an Executor using a {@code StreamSet}, which can be obtained by
+	 * calling the static {@link #streams()} method.
+	 *
+	 * @param streamset the set of Streams with which to construct the Executor
+	 *
+	 * @see StreamSet
+	 */
+	public SML_Executor(StreamSet streamset) {
+		this(streamset.in, streamset.out, streamset.err);
+	}
+
+	/**
+	 * Constructs an Executor using the streams provided.
+	 *
+	 * @param in  the Executor's Input Stream
+	 * @param out the Executor's Output Stream
+	 * @param err the Executor's Error Stream
+	 */
+	public SML_Executor(InputStream in, PrintStream out, PrintStream err) {
+		inputStream = in;
+		outputStream = out;
+		errorStream = err;
+
 		memory = new Memory(256);
 		accumulator = 0;
 		halt = false;
@@ -69,17 +102,19 @@ public class SML_Executor {
 
 		final Requirements reqs = SML_Executor.getRequirements();
 
+		final SML_Executor executor = new SML_Executor();
+
 		for (int i = 0, count = args.length; i < count; ++i)
 			if (args[i].startsWith("--"))
 				reqs.fulfil(args[i].substring(2), args[++i]);
 			else if (args[i].startsWith("-"))
 				reqs.fulfil(args[i].substring(1), true);
 			else
-				SML_Executor.err(
+				executor.err(
 						"Invalid parameter: %s. Parameters must start with either one '-' or two '--' dashes.",
 						args[i]);
 
-		SML_Executor.execute(reqs);
+		executor.execute(reqs);
 	}
 
 	/**
@@ -114,6 +149,20 @@ public class SML_Executor {
 	}
 
 	/**
+	 * Returns a {@code StreamSet} that can be passed as a parameter to construct an
+	 * Executor. The {@code StreamSet} can be configured with different input,
+	 * output and error Streams for the Executor to use instead of the "standard"
+	 * in, out and err Streams of the {@code System} class.
+	 *
+	 * @return the StreamSet
+	 *
+	 * @see StreamSet
+	 */
+	public static StreamSet streams() {
+		return new StreamSet();
+	}
+
+	/**
 	 * Uses the parameters from the {@code requirements} in order to load the
 	 * program, execute it and output the results.
 	 * <p>
@@ -122,17 +171,15 @@ public class SML_Executor {
 	 *
 	 * @param requirements the parameters needed to compile
 	 */
-	public static void execute(Requirements requirements) {
+	public void execute(Requirements requirements) {
 		if (!requirements.fulfilled()) {
 			for (final AbstractRequirement r : requirements)
 				if (!r.fulfilled())
-					SML_Executor.err("No value for parameter '%s' found", r.key());
+					err("No value for parameter '%s' found", r.key());
 
-			SML_Executor.err("Execution couldn't start due to missing parameters");
+			err("Execution couldn't start due to missing parameters");
 			return;
 		}
-
-		SML_Executor executor = new SML_Executor();
 
 		final String  input   = (String) requirements.getValue("input");
 		final String  output  = (String) requirements.getValue("output");
@@ -144,43 +191,43 @@ public class SML_Executor {
 			// === SILENT EXECUTION ===
 
 			if (input.equals("stdin"))
-				executor.loadToMemoryFromStdin();
+				loadToMemoryFromStdin();
 			else
-				executor.loadToMemoryFromFile(new File(input));
+				loadToMemoryFromFile(new File(input));
 
-			executor.executeInstructionsFromMemory();
+			executeInstructionsFromMemory();
 
 			if (screen || output.equals("stdout"))
-				executor.writeResultsToStdout();
+				writeResultsToStdout();
 			if (!output.equals("stdout"))
-				executor.writeResultsToFile(new File(output));
+				writeResultsToFile(new File(output));
 
 		} else {
 
 			// === VERBOSE EXECUTION ===
 
 			if (input.equals("stdin")) {
-				SML_Executor.out("Loading progarm from Standard Input");
-				SML_Executor.out("The memory address for each instruction will be printed");
-				SML_Executor.out("All numbers are interpreted as hex");
-				SML_Executor.out("Type '-ffff' to stop inputting code");
-				executor.loadToMemoryFromStdin();
+				out("Loading progarm from Standard Input");
+				out("The memory address for each instruction will be printed");
+				out("All numbers are interpreted as hex");
+				out("Type '-ffff' to stop inputting code");
+				loadToMemoryFromStdin();
 			} else {
-				SML_Executor.out("Loading program from file: %s", input);
-				executor.loadToMemoryFromFile(new File(input));
+				out("Loading program from file: %s", input);
+				loadToMemoryFromFile(new File(input));
 			}
-			SML_Executor.out("Progarm loading completed");
+			out("Progarm loading completed");
 
-			SML_Executor.out("Execution started");
-			executor.executeInstructionsFromMemory();
-			SML_Executor.out("Execution ended");
+			out("Execution started");
+			executeInstructionsFromMemory();
+			out("Execution ended");
 
 			if (screen || output.equals("stdout"))
-				SML_Executor.out("Executor State:");
-			executor.writeResultsToStdout();
+				out("Executor State:");
+			writeResultsToStdout();
 			if (!output.equals("stdout")) {
-				SML_Executor.out("Writing results to file: %s", output);
-				executor.writeResultsToFile(new File(output));
+				out("Writing results to file: %s", output);
+				writeResultsToFile(new File(output));
 			}
 		}
 	}
@@ -198,9 +245,9 @@ public class SML_Executor {
 			}
 		} catch (final NumberFormatException e) {
 			// This assumes that the exception's message is the number that isn't an integer
-			SML_Executor.err("'%s' is not a valid base-16 integer", e.getMessage());
+			err("'%s' is not a valid base-16 integer", e.getMessage());
 		} catch (InvalidInstructionException | ArithmeticException e) {
-			SML_Executor.err("%s", e.getMessage());
+			err("%s", e.getMessage());
 		}
 	}
 
@@ -208,7 +255,7 @@ public class SML_Executor {
 
 	private void loadToMemoryFromStdin() {
 		@SuppressWarnings("resource")
-		final Scanner scanner = new Scanner(System.in);
+		final Scanner scanner = new Scanner(inputStream);
 
 		boolean valid;
 		int     input     = 0;
@@ -218,17 +265,17 @@ public class SML_Executor {
 		while (!userInput.equals("-ffff")) {
 			valid = false;
 			while (!valid) {
-				SML_Executor.message("%02x ? ", lineCount);
+				message("%02x ? ", lineCount);
 				userInput = scanner.nextLine();
 
 				try {
 					input = Integer.parseInt(userInput, 16);
 					valid = (-0xffff <= input) && (input <= 0xffff);
 					if (!valid)
-						SML_Executor.err("%s is out of range (-0xffff to 0xffff)", userInput);
+						err("%s is out of range (-0xffff to 0xffff)", userInput);
 				} catch (final NumberFormatException exc) {
 					valid = false;
-					SML_Executor.err("%s is not a valid integer", userInput);
+					err("%s is not a valid integer", userInput);
 				}
 			}
 			write(lineCount, input);
@@ -247,16 +294,16 @@ public class SML_Executor {
 			}
 
 		} catch (final FileNotFoundException e) {
-			SML_Executor.err("Couldn't find file %s", file);
+			err("Couldn't find file %s", file);
 		} catch (final NumberFormatException e) {
-			SML_Executor.err("'%s' is not a valid base-16 integer", line);
+			err("'%s' is not a valid base-16 integer", line);
 		} catch (final IOException e) {
-			SML_Executor.err("Unexpected error while reading from file %s", file);
+			err("Unexpected error while reading from file %s", file);
 		}
 	}
 
 	private void writeResultsToStdout() {
-		SML_Executor.out("%s", getDumpString());
+		out("%s", getDumpString());
 	}
 
 	private void writeResultsToFile(File file) {
@@ -264,40 +311,40 @@ public class SML_Executor {
 			writer.write(getDumpString());
 
 		} catch (final IOException e) {
-			SML_Executor.err("Unexpected error while writing to file %s", file);
+			err("Unexpected error while writing to file %s", file);
 		}
 	}
 
 	// --- 5 method for uniform message printing ---
 
-	private static void out(String text, Object... args) {
-		System.out.printf("Runtime Info:  %s%n", String.format(text, args));
-		System.out.flush();
+	private void out(String format, Object... args) {
+		outputStream.printf("Runtime Info:  %s%n", String.format(format, args));
+		outputStream.flush();
 	}
 
-	private static void err(String text, Object... args) {
-		System.err.printf("Runtime Error: %s%n", String.format(text, args));
-		System.err.flush();
+	private void err(String format, Object... args) {
+		errorStream.printf("Runtime Error: %s%n", String.format(format, args));
+		errorStream.flush();
 	}
 
 	/**
-	 * Delegates to {@code System.out.printf(String, Object...)}
+	 * Delegates to {@code outputStream.printf(format, args)}
 	 *
-	 * @param text the text
-	 * @param args the format arguments
+	 * @param format the text
+	 * @param args   the format arguments
 	 */
-	static void message(String text, Object... args) {
-		System.out.printf(text, args);
+	void message(String format, Object... args) {
+		outputStream.printf(format, args);
 	}
 
 	/** Prints a prompt for input to standard out */
-	static void prompt() {
-		SML_Executor.message("> ");
+	void prompt() {
+		message("> ");
 	}
 
 	/** Prints a prefix for another message to standard out */
-	static void output() {
-		SML_Executor.message("SML: ");
+	void output() {
+		message("SML: ");
 	}
 
 	// --- 7 memory wrapper-delegate methods
