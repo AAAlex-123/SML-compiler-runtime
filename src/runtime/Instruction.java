@@ -27,7 +27,7 @@ public enum Instruction {
 			@SuppressWarnings("resource")
 			final Scanner scanner = new Scanner(System.in);
 
-			SML_Executor.prompt();
+			executor.prompt();
 			final String input0 = scanner.nextLine();
 			final int    input;
 
@@ -52,7 +52,7 @@ public enum Instruction {
 			@SuppressWarnings("resource")
 			final Scanner scanner = new Scanner(System.in);
 
-			SML_Executor.prompt();
+			executor.prompt();
 			final char[] array = scanner.nextLine().toCharArray();
 
 			executor.writeChars(operand, array);
@@ -67,8 +67,8 @@ public enum Instruction {
 	WRITE(0x12) {
 		@Override
 		protected void execute(SML_Executor executor) {
-			SML_Executor.output();
-			SML_Executor.message("%04x", executor.read(operand));
+			executor.output();
+			executor.message("%04x", executor.read(operand));
 		}
 	},
 
@@ -80,8 +80,8 @@ public enum Instruction {
 	WRITE_NL(0x13) {
 		@Override
 		protected void execute(SML_Executor executor) {
-			SML_Executor.output();
-			SML_Executor.message("%04x%n", executor.read(operand));
+			executor.output();
+			executor.message("%04x%n", executor.read(operand));
 		}
 	},
 
@@ -95,9 +95,9 @@ public enum Instruction {
 		protected void execute(SML_Executor executor) {
 			final char[] chars = executor.readChars(operand);
 
-			SML_Executor.output();
+			executor.output();
 			for (final char c : chars)
-				SML_Executor.message("%c", c);
+				executor.message("%c", c);
 		}
 	},
 
@@ -111,10 +111,10 @@ public enum Instruction {
 		protected void execute(SML_Executor executor) {
 			final char[] chars = executor.readChars(operand);
 
-			SML_Executor.output();
+			executor.output();
 			for (final char c : chars)
-				SML_Executor.message("%c", c);
-			SML_Executor.message("%n");
+				executor.message("%c", c);
+			executor.message("%n");
 		}
 	},
 

@@ -24,7 +24,7 @@ import requirement.requirements.Requirements;
  * @author Alex Mandelias
  */
 public class SML_Simulator {
-	
+
 	/* Don't let anyone instantiate this class */
 	private SML_Simulator() {}
 
@@ -143,6 +143,9 @@ public class SML_Simulator {
 
 		String command = "";
 
+		final SML_Compiler compiler = new SML_Compiler();
+		final SML_Executor executor = new SML_Executor();
+
 		Requirements compileReqs, executeReqs;
 		Map<String, String> options;
 
@@ -191,10 +194,10 @@ public class SML_Simulator {
 				SML_Simulator.printHelpForCommand(options.get("_help_for"));
 
 			else if (command.equals("compile"))
-				SML_Compiler.compile(compileReqs);
+				compiler.compile(compileReqs);
 
 			else if (command.equals("execute"))
-				SML_Executor.execute(executeReqs);
+				executor.execute(executeReqs);
 
 			else if (command.equals("com_exe")) {
 
@@ -203,8 +206,8 @@ public class SML_Simulator {
 					executeReqs.fulfil("input", inter);
 				}
 
-				SML_Compiler.compile(compileReqs);
-				SML_Executor.execute(executeReqs);
+				compiler.compile(compileReqs);
+				executor.execute(executeReqs);
 
 			} else if (command.equals("exit") || command.equals("")) {
 

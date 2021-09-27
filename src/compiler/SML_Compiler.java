@@ -14,6 +14,8 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.EmptyStackException;
@@ -48,6 +50,7 @@ import memory.Memory;
 import requirement.requirements.AbstractRequirement;
 import requirement.requirements.Requirements;
 import requirement.requirements.StringType;
+import utility.StreamSet;
 
 /**
  * A Compiler for the high-level language. It defines the {@code static} method
@@ -78,6 +81,9 @@ public class SML_Compiler {
 		SML_Compiler.keywords.add("jumpto");
 	}
 
+	private final InputStream inputStream;
+	private final PrintStream outputStream, errorStream;
+
 	private final SymbolTable          symbolTable;
 	private final CodeWriter           memory;
 	private final StringBuilder        program;
@@ -92,8 +98,35 @@ public class SML_Compiler {
 		public boolean success;
 	}
 
-	/* Don't let anyone instantiate this class */
-	private SML_Compiler() {
+	/** Constructs a Compiler with the "standard" in, out and error streams */
+	public SML_Compiler() {
+		this(new StreamSet());
+	}
+
+	/**
+	 * Constructs a Compiler using a {@code StreamSet}, which can be obtained by
+	 * calling the static {@link #streams()} method.
+	 *
+	 * @param streamset the set of Streams with which to construct the Compiler
+	 *
+	 * @see StreamSet
+	 */
+	public SML_Compiler(StreamSet streamset) {
+		this(streamset.in, streamset.out, streamset.err);
+	}
+
+	/**
+	 * Constructs a Compiler using the streams provided.
+	 *
+	 * @param in  the Compiler's Input Stream
+	 * @param out the Compiler's Output Stream
+	 * @param err the Compiler's Error Stream
+	 */
+	public SML_Compiler(InputStream in, PrintStream out, PrintStream err) {
+		inputStream = in;
+		outputStream = out;
+		errorStream = err;
+
 		symbolTable = new SymbolTable();
 		memory = new Memory(256);
 		program = new StringBuilder();
@@ -116,17 +149,19 @@ public class SML_Compiler {
 
 		final Requirements reqs = SML_Compiler.getRequirements();
 
+		final SML_Compiler compiler = new SML_Compiler();
+
 		for (int i = 0, count = args.length; i < count; ++i)
 			if (args[i].startsWith("--"))
 				reqs.fulfil(args[i].substring(2), args[++i]);
 			else if (args[i].startsWith("-"))
 				reqs.fulfil(args[i].substring(1), true);
 			else
-				SML_Compiler.err(
+				compiler.err(
 				        "Invalid parameter: %s. Parameters must start with either one '-' or two '--' dashes.",
 				        args[i]);
 
-		SML_Compiler.compile(reqs);
+		compiler.compile(reqs);
 	}
 
 	/**
@@ -164,6 +199,20 @@ public class SML_Compiler {
 	}
 
 	/**
+	 * Returns a {@code StreamSet} that can be passed as a parameter to construct a
+	 * Compiler. The {@code StreamSet} can be configured with different input,
+	 * output and error Streams for the Compiler to use instead of the "standard"
+	 * in, out and err Streams of the {@code System} class.
+	 *
+	 * @return the StreamSet
+	 *
+	 * @see StreamSet
+	 */
+	public static StreamSet streams() {
+		return new StreamSet();
+	}
+
+	/**
 	 * Uses the parameters from the {@code requirements} in order to load the
 	 * program, compile it and output the results.
 	 * <p>
@@ -172,20 +221,17 @@ public class SML_Compiler {
 	 *
 	 * @param requirements the parameters needed to compile
 	 */
-	public static void compile(Requirements requirements) {
+	public void compile(Requirements requirements) {
 		if (!requirements.fulfilled()) {
 			for (final AbstractRequirement r : requirements)
 				if (!r.fulfilled())
-					SML_Compiler.err("No value for parameter '%s' found", r.key());
+					err("No value for parameter '%s' found", r.key());
 
-			SML_Compiler.err("Compilation couldn't start due to missing parameters");
+			err("Compilation couldn't start due to missing parameters");
 			return;
 		}
 
-		final SML_Compiler compiler = new SML_Compiler();
-
 		final CompilationData data = new CompilationData();
-
 
 		final String  input   = (String) requirements.getValue("input");
 		final String  output  = (String) requirements.getValue("output");
@@ -201,77 +247,76 @@ public class SML_Compiler {
 			// === SILENT COMPILATION ===
 
 			if (input.equals("stdin"))
-				compiler.loadProgramFromStdin();
+				loadProgramFromStdin();
 			else
-				compiler.loadProgramFromFile(new File(input));
+				loadProgramFromFile(new File(input));
 
-			compiler.pass1(data);
-			compiler.pass2(data);
+			pass1(data);
+			pass2(data);
 
 			if (data.success) {
 				if (output.equals("stdout")) {
-					SML_Compiler
-					        .out("The following memory dump is suitable for execution.%n-------");
-					compiler.writeResultsToStdout(true);
+					out("The following memory dump is suitable for execution.%n-------");
+					writeResultsToStdout(true);
 				} else
-					compiler.writeResultsToFile(new File(output));
+					writeResultsToFile(new File(output));
 
 				if (screen) {
-					SML_Compiler.out(
+					out(
 					        "The following memory dump is NOT suitable for execution.%n-------");
-					compiler.writeResultsToStdout(false);
-					SML_Compiler.out("-------%n");
+					writeResultsToStdout(false);
+					out("-------%n");
 				}
 			}
 
 			if (st)
-				SML_Compiler.out("Symbol Table:%n%s", compiler.symbolTable);
+				out("Symbol Table:%n%s", symbolTable);
 
 		} else {
 
 			// === VERBOSE COMPILATION ===
 
 			if (input.equals("stdin")) {
-				SML_Compiler.out("Loading program from Standard Input");
-				SML_Compiler.out("The line number for each statement will be printed");
-				SML_Compiler.out("Type 'end' to stop inputting code");
-				compiler.loadProgramFromStdin();
+				out("Loading program from Standard Input");
+				out("The line number for each statement will be printed");
+				out("Type 'end' to stop inputting code");
+				loadProgramFromStdin();
 			} else {
-				SML_Compiler.out("Loading program from file: %s", input);
-				compiler.loadProgramFromFile(new File(input));
+				out("Loading program from file: %s", input);
+				loadProgramFromFile(new File(input));
 			}
-			SML_Compiler.out("Progarm loading completed");
+			out("Progarm loading completed");
 
-			SML_Compiler.out("Compilation started");
-			compiler.pass1(data);
+			out("Compilation started");
+			pass1(data);
 
-			SML_Compiler.out("Completing goto instructions");
-			compiler.pass2(data);
+			out("Completing goto instructions");
+			pass2(data);
 
-			SML_Compiler.out("Compilation ended");
+			out("Compilation ended");
 
 			if (data.success) {
 				if (output.equals("stdout")) {
-					SML_Compiler.out("Generated machine code (suitable for execution):");
-					compiler.writeResultsToStdout(true);
+					out("Generated machine code (suitable for execution):");
+					writeResultsToStdout(true);
 				} else {
-					SML_Compiler.out("Writing generated machine code to file: %s", output);
-					compiler.writeResultsToFile(new File(output));
+					out("Writing generated machine code to file: %s", output);
+					writeResultsToFile(new File(output));
 				}
 
 				if (screen) {
-					SML_Compiler.out("Generated machine code (NOT suitable for execution):");
-					compiler.writeResultsToStdout(false);
+					out("Generated machine code (NOT suitable for execution):");
+					writeResultsToStdout(false);
 				}
 			}
 
 			if (st)
-				SML_Compiler.out("Symbol Table:%n%s", compiler.symbolTable);
+				out("Symbol Table:%n%s", symbolTable);
 
 			if (data.success)
-				SML_Compiler.out("Compilation succeeded :)");
+				out("Compilation succeeded :)");
 			else
-				SML_Compiler.out("Compilation failed :(");
+				out("Compilation failed :(");
 		}
 	}
 
@@ -418,7 +463,7 @@ public class SML_Compiler {
 
 			} // end try (one statement / one line)
 			catch (final CompilerException e) {
-				SML_Compiler.err("at: %s:%02d:%02d: %s", data.inputFileName, data.lineNumber,
+				err("at: %s:%02d:%02d: %s", data.inputFileName, data.lineNumber,
 				        SML_Compiler.find(data), e.getMessage());
 				data.success = false;
 			} catch (final EmptyStackException e1) {
@@ -443,7 +488,7 @@ public class SML_Compiler {
 				memory.write(instructionAddress, instruction + location);
 
 			} catch (final CompilerException e) {
-				SML_Compiler.err("at: %s:%02d:%02d: %s", data.inputFileName, data.lineNumber,
+				err("at: %s:%02d:%02d: %s", data.inputFileName, data.lineNumber,
 				        SML_Compiler.find(data), e.getMessage());
 				data.success = false;
 			}
@@ -454,14 +499,14 @@ public class SML_Compiler {
 
 	private void loadProgramFromStdin() {
 		@SuppressWarnings("resource")
-		final Scanner scanner = new Scanner(System.in);
+		final Scanner scanner = new Scanner(inputStream);
 		program.setLength(0);
 
 		String userInput = "";
 		int    lineCount = 0;
 
 		while (!userInput.equals("end")) {
-			System.out.printf("%02d > ", lineCount);
+			msg("%02d > ", lineCount);
 			userInput = scanner.nextLine();
 
 			if (!userInput.isBlank())
@@ -479,14 +524,14 @@ public class SML_Compiler {
 				program.append(line).append(lineSep);
 
 		} catch (final FileNotFoundException e) {
-			SML_Compiler.err("Couldn't find file: %s", file);
+			err("Couldn't find file: %s", file);
 		} catch (final IOException e) {
-			SML_Compiler.err("Unexpected error while reading from file: %s", file);
+			err("Unexpected error while reading from file: %s", file);
 		}
 	}
 
 	private void writeResultsToStdout(boolean suitableForExecution) {
-		SML_Compiler.out("%n%s", suitableForExecution ? memory.list() : memory.listShort());
+		out("%n%s", suitableForExecution ? memory.list() : memory.listShort());
 	}
 
 	private void writeResultsToFile(File file) {
@@ -494,18 +539,22 @@ public class SML_Compiler {
 			writer.write(memory.list());
 
 		} catch (final IOException e) {
-			SML_Compiler.err("Unexpected error while writing to file: %s", file);
+			err("Unexpected error while writing to file: %s", file);
 		}
 	}
 
-	// --- 2 method for uniform message printing ---
+	// --- 3 method for uniform message printing ---
 
-	private static void out(String text, Object... args) {
-		System.out.printf("Compilation Info:  %s%n", String.format(text, args));
+	private void msg(String format, Object... args) {
+		outputStream.printf(format, args);
 	}
 
-	private static void err(String text, Object... args) {
-		System.err.printf("Compilation Error: %s%n", String.format(text, args));
+	private void out(String format, Object... args) {
+		outputStream.printf("Compilation Info:  %s%n", String.format(format, args));
+	}
+
+	private void err(String format, Object... args) {
+		errorStream.printf("Compilation Error: %s%n", String.format(format, args));
 	}
 
 	// --- 3 memory wrapper-delegate methods
