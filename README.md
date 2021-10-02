@@ -55,11 +55,11 @@ introduced by the name of the nonterminal being defined, followed by a colon. On
 alternative definitions for the nonterminal then follow on succeeding lines. (e.g.
 _IntDeclarationStatement_, _Variable_)
 * The syntax {x} on the right-hand side of a production denotes zero or more occurrences 
-* of x separated by whatever comes before it. (e.g. { _Variable_})
+of x separated by whatever comes before it. (e.g. { _Variable_})
 * Few nonterminals are defined by a narrative phrase in quotes where it would be 
-* impractical to list all the alternatives.
+impractical to list all the alternatives.
 * The phrase _(one of)_ on the right-hand side of a production signifies that each of the 
-* symbols on the following line is an alternative definition.
+symbols on the following line is an alternative definition.
 
 The grammar of the language is as follows:
 
