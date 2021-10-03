@@ -6,7 +6,7 @@ import java.util.Scanner;
 
 import compiler.SML_Compiler;
 import requirement.requirements.AbstractRequirement;
-import requirement.requirements.Requirements;
+import requirement.util.Requirements;
 
 /**
  * A Simulator that executes commands to both compile a high-level-language

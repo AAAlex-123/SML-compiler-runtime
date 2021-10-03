@@ -48,8 +48,8 @@ import compiler.symboltable.SymbolType;
 import memory.CodeWriter;
 import memory.Memory;
 import requirement.requirements.AbstractRequirement;
-import requirement.requirements.Requirements;
 import requirement.requirements.StringType;
+import requirement.util.Requirements;
 import utility.StreamSet;
 
 /**
