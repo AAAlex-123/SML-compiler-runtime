@@ -14,8 +14,8 @@ import java.util.Scanner;
 import memory.CodeReader;
 import memory.Memory;
 import requirement.requirements.AbstractRequirement;
-import requirement.requirements.Requirements;
 import requirement.requirements.StringType;
+import requirement.util.Requirements;
 import runtime.exceptions.InvalidInstructionException;
 import utility.StreamSet;
 
