@@ -582,6 +582,9 @@ public class SML_Compiler {
 	}
 
 	/**
+	 * <b>Warning:</b> this method is public due to bad design and should not be
+	 * called
+	 * <p>
 	 * Allocates an address for a variable.
 	 *
 	 * @return the address of the variable
