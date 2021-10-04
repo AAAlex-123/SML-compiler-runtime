@@ -5,15 +5,6 @@ executing the machine code produced by the compiler. Examples of the high-level-
 the generated machine code and the result of execution can be found in the `example_files` 
 directory.
 
-## Runtime Environment (SML_Executor)
-
-The Executor uses an accumulator, meaning all of the opeartions happen in a single place. 
-Compared to an implementation using multiple registers or operating directly on memory, a 
-single accumulator greatly simplifies the design of the compiler while somewhat reducing 
-the complexity of the Runtime as well as the number of different instructions. The machine 
-code is loaded into the Executor's memory and then each instruction is executed one-by-one 
-until the HALT instruction is read.
-
 ## Compiler (SML_Compiler)
 
 The Compiler parses a high-level-language file (or stdin) to produce machine code 
@@ -25,11 +16,33 @@ since they can be nested. They are rather poorly implemented on top of the rest 
 Compiler because they were the last feature to be added to a compiler that didn't use 
 stacks or treat code as separate blocks from the beginning.
 
+## Runtime Environment (SML_Executor)
+
+The Executor uses an accumulator, meaning all of the opeartions happen in a single place. 
+Compared to an implementation using multiple registers or operating directly on memory, a 
+single accumulator greatly simplifies the design of the compiler while somewhat reducing 
+the complexity of the Runtime as well as the number of different instructions. The machine 
+code is loaded into the Executor's memory and then each instruction is executed one-by-one 
+until the HALT instruction is read.
+
 ## Commandline Tool (SML_Simulator)
 
 The Simulator provides a commandline interface that simplifies the process of compiling 
 high-level-language code and executing machine code. The user may issue many successive 
 compilation and execution commands without the need for running a Java class each time.
+
+## Usage
+123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+The Compiler, Executor and Commandline Tool can all be run as Java applications. When run, 
+the Compiler and Executor perform a single operation, then exit, while the Commandline 
+Tool stays open and can execute multiple commands which are issued by the user. The `-h` 
+flag may be used when running any of these applications to show a help message. The 
+following commands can be used to run each of the classes:
+```
+java --class-path bin;lib/requirement.jar compiler.SML_Compiler
+java --class-path bin;lib/requirement.jar runtime.SML_Executor
+java --class-path bin;lib/requirement.jar runtime.SML_Simulator
+```
 
 ## Machine Code
 
