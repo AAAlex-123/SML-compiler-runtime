@@ -27,6 +27,13 @@ The Simulator provides a commandline interface that simplifies the process of co
 high-level-language code and executing machine code. The user may issue many successive 
 compilation and execution commands without the need for running a Java class each time.
 
+## Machine Code
+
+The machine code consists of 16-bit instructions whose high bits are the instruction's 
+Operation Code (its identifier) and the low bits its Operand (usually the address in 
+memory). The instructions are read from a newline-separated file and are executed 
+sequentially one-by-one. They are adequately documented in the `Instruction` enum.
+
 ## High Level Language
 
 The high-level-language consists of statements which span exactly line.
