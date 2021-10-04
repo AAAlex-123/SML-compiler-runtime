@@ -1,5 +1,9 @@
 # SML-compiler-runtime
-A compiler for a very simple, BASIC-like language along with a Runtime Environment for executing the machine code produced by the compiler.
+
+A compiler for a very simple, BASIC-like language along with a Runtime Environment for 
+executing the machine code produced by the compiler. Examples of the high-level-language, 
+the generated machine code and the result of execution can be found in the `example_files` 
+directory.
 
 ## Runtime Environment (SML_Executor)
 
@@ -52,7 +56,7 @@ symbols.
 Referencing the following example statement,
 
 _IntDeclarationStatement_:<br/>
-&nbsp;&nbsp;`int` { _Variable_}
+&nbsp;&nbsp;`int` {_Variable_}
 
 Note that:
 * Terminal symbols are shown in fixed width font. These are to appear in a program exactly 
@@ -62,7 +66,7 @@ introduced by the name of the nonterminal being defined, followed by a colon. On
 alternative definitions for the nonterminal then follow on succeeding lines. (e.g.
 _IntDeclarationStatement_, _Variable_)
 * The syntax {x} on the right-hand side of a production denotes zero or more occurrences 
-of x separated by whatever comes before it. (e.g. { _Variable_})
+of x (e.g. {_Variable_})
 * Few nonterminals are defined by a narrative phrase in quotes where it would be 
 impractical to list all the alternatives.
 * The phrase _(one of)_ on the right-hand side of a production signifies that each of the 
@@ -95,7 +99,7 @@ _NonConstructorStatement_: <br/>
 &nbsp;&nbsp;_DumpStatement_ <br/>
 
 _IntDeclarationStatement_:<br/>
-&nbsp;&nbsp;`int` { _Variable_}
+&nbsp;&nbsp;`int` {_Variable_}
 
 _LelDeclarationStatement_:<br/>
 &nbsp;&nbsp;`label` _Label_<br/>
@@ -104,13 +108,13 @@ _CommentStatement_:<br/>
 &nbsp;&nbsp;`//` "anything apart from newline character"<br/>
 
 _InputStatement_:<br/>
-&nbsp;&nbsp;`input`&nbsp;&nbsp;{ _Variable_}<br/>
+&nbsp;&nbsp;`input`&nbsp;&nbsp;{_Variable_}<br/>
 
 _LetStatement_:<br/>
 &nbsp;&nbsp;`let` _Variable_ `=` _InfixExpression_<br/>
 
 _PrintStatement_:<br/>
-&nbsp;&nbsp;`print` { _Variable_}<br/>
+&nbsp;&nbsp;`print` {_Variable_}<br/>
 
 _GotoStatement_:<br/>
 &nbsp;&nbsp;`goto` _Label_<br/>
