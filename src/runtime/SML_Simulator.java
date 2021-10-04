@@ -29,7 +29,7 @@ public class SML_Simulator {
 	private SML_Simulator() {}
 
 	/** Informs the user about the different commands available in the Simulator */
-	private static final String msg = "\n\nUsage (parameters in [] are optional):\n"
+	private static final String message = "\n\nUsage (parameters in [] are optional):\n"
 	        + "       help    [command]\n"
 	        + "   or  compile [options]\n"
 	        + "   or  execute [options]\n"
@@ -94,9 +94,9 @@ public class SML_Simulator {
 	 * default values and can be used as-is for simulation.
 	 *
 	 * <pre>
-	 * | Value   | Default | Explanation         | Command Line |
-	 * |---------|---------|---------------------|--------------|
-	 * | verbose | false   | output all messages | -            |
+	 * | Value | Default | Explanation | Command Line |
+	 * |-------|---------|-------------|--------------|
+	 * | h     | false   | show help   | -            |
 	 * </pre>
 	 *
 	 * @return the Requirements
@@ -104,9 +104,9 @@ public class SML_Simulator {
 	public static Requirements getRequirements() {
 		final Requirements reqs = new Requirements();
 
-		reqs.add("verbose");
+		reqs.add("h");
 
-		reqs.fulfil("verbose", false);
+		reqs.fulfil("h", false);
 
 		return reqs;
 	}
@@ -115,10 +115,9 @@ public class SML_Simulator {
 	 * Uses the parameters from the {@code requirements} in order to repeatedly
 	 * prompt the user for a command to execute, parse it, and then execute it.
 	 * <p>
-	 * Information about the different commands the user may write can be found in
-	 * the {@link SML_Simulator#msg message} which is optionally printed once at the
-	 * start of simulation (only with -verbose flag) and may be printed again using
-	 * the 'help' command.
+	 * Information about the different commands can be found in the {@link #message}
+	 * which is optionally shown once at the start of simulation (only with -h flag)
+	 * and may be printed again using the 'help' command.
 	 * <p>
 	 * The different Requirements are documented in the
 	 * {@link SML_Compiler#getRequirements() getRequirements()} method.
@@ -136,10 +135,10 @@ public class SML_Simulator {
 			return;
 		}
 
-		final boolean verboseSimulator = (boolean) requirements.getValue("verbose");
+		final boolean showHelp = (boolean) requirements.getValue("h");
 
-		if (verboseSimulator)
-			SML_Simulator.out(SML_Simulator.msg);
+		if (showHelp)
+			SML_Simulator.out(SML_Simulator.message);
 
 		String command = "";
 
@@ -287,7 +286,7 @@ public class SML_Simulator {
 
 	private static void printHelpForCommand(String command) {
 		if (command.equals(""))
-			SML_Simulator.out(SML_Simulator.msg);
+			SML_Simulator.out(SML_Simulator.message);
 
 		else if (command.equals("compile"))
 			SML_Simulator.out("Use this command to compile\n"
