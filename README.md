@@ -32,7 +32,6 @@ high-level-language code and executing machine code. The user may issue many suc
 compilation and execution commands without the need for running a Java class each time.
 
 ## Usage
-123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
 The Compiler, Executor and Commandline Tool can all be run as Java applications. When run, 
 the Compiler and Executor perform a single operation, then exit, while the Commandline 
 Tool stays open and can execute multiple commands which are issued by the user. The `-h` 
@@ -56,15 +55,16 @@ sequentially one-by-one. They are adequately documented in the `Instruction` enu
 The high-level-language consists of statements which span exactly line.
 
 Notes on the statements and the lines of a high-level-language program:
-* Each line begins with a unique number which will be used to identify it to provide 
-better compilation error messages.
-* After the number, any number of spaces follow and then a statement.
+* Each line consists of a unique number which will be used to identify it to provide 
+better compilation error messages and a statement
 * Each statement spans exactly one line.
 * Statements start with the statement identifier and then follow the whitespace-separated 
 tokens for that statement
 * The statements can either be "constructors", meaning that they define new symbols 
 (variables or labels), or "non constructors", meaning that they operate on existing 
-symbols. 
+symbols.
+* The spaces shown in the grammar definition below can be any sequence of characters that 
+match the '\\s+' regex
 
 Referencing the following example statement,
 
@@ -75,9 +75,9 @@ Note that:
 * Terminal symbols are shown in fixed width font. These are to appear in a program exactly 
 as written. (e.g. `int`)
 * Nonterminal symbols are shown in italic type. The definition of a nonterminal is 
-introduced by the name of the nonterminal being defined, followed by a colon. One or more 
-alternative definitions for the nonterminal then follow on succeeding lines. (e.g.
-_IntDeclarationStatement_, _Variable_)
+introduced by the name of the nonterminal being defined, followed by a colon. (e.g. 
+_IntDeclarationStatement_:) The definition for the nonterminal then follows on the next 
+line. (e.g. `int` {_Variable_})
 * The syntax {x} on the right-hand side of a production denotes zero or more occurrences 
 of x (e.g. {_Variable_})
 * Few nonterminals are defined by a narrative phrase in quotes where it would be 
@@ -85,7 +85,16 @@ impractical to list all the alternatives.
 * The phrase _(one of)_ on the right-hand side of a production signifies that each of the 
 symbols on the following line is an alternative definition.
 
-The grammar of the language is as follows:
+With that in mind, a valid program of this language can be defined as following:
+
+_Program_: <br/>
+&nbsp;&nbsp;{_Line_} <br/>
+
+_Line_: <br/>
+&nbsp;&nbsp;_LineNumber_ _Statement_ "newline character" <br/>
+
+_LineNumber_: <br/>
+&nbsp;&nbsp;"matches the regex '\\d+'" <br/>
 
 _Statement_: <br/>
 &nbsp;&nbsp;_ConstructorStatement_ <br/>
@@ -114,7 +123,7 @@ _NonConstructorStatement_: <br/>
 _IntDeclarationStatement_:<br/>
 &nbsp;&nbsp;`int` {_Variable_}
 
-_LelDeclarationStatement_:<br/>
+_LabelDeclarationStatement_:<br/>
 &nbsp;&nbsp;`label` _Label_<br/>
 
 _CommentStatement_:<br/>
@@ -160,7 +169,7 @@ _DumpStatement_:<br/>
 &nbsp;&nbsp;`dump`<br/>
 
 _Variable_:<br/>
-&nbsp;&nbsp;"matches the regex '^[a-zA-Z]\\w*$'" and is not a reserved word<br/>
+&nbsp;&nbsp;"matches the regex '^[a-zA-Z]\\w*$' and is not a reserved word<br/>
 
 _Label_:<br/>
 &nbsp;&nbsp;"matches the regex '^:\\w*$' and is not a reserved word<br/>
