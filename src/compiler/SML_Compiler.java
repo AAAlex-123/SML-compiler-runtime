@@ -69,6 +69,27 @@ import utility.StreamSet;
  */
 public class SML_Compiler {
 
+	/** Informs the user about the different flags available in the Compiler */
+	private static final String message = "Usage (parameters in [] are optional):\n"
+	        + "     java --class-path bin;lib\\requirement.jar compiler.SML_Compiler [options]\n"
+	        + "\n"
+	        + "and <options> include:\n"
+	        + "  -h\n"
+	        + "      print this help message and exit\n"
+	        + "  --input <filename or 'stdin'>\n"
+	        + "      where to input the code for compilation or execution from\n"
+	        + "  --output <filename or 'stdout'>\n"
+	        + "      where to output the results of compilation or execution\n"
+	        + "  -screen\n"
+	        + "      output user-friendly results to stdout as well, independent from --output\n"
+	        + "  -verbose\n"
+	        + "      show all output, not only error messages\n"
+	        + "  -st\n"
+	        + "      show the Symbol Table at the end of compilation\n"
+	        + "\n"
+	        + "Compiling with no options is equivalent to:\n"
+	        + "  java --class-path bin;lib\\requirement.jar compiler.SML_Compiler --input stdin --output out.txt\n";
+
 	private static final Collection<String> keywords = new HashSet<>();
 
 	static {
@@ -147,9 +168,14 @@ public class SML_Compiler {
 	 */
 	public static void main(String[] args) {
 
-		final Requirements reqs = SML_Compiler.getRequirements();
-
 		final SML_Compiler compiler = new SML_Compiler();
+
+		if (Arrays.asList(args).contains("-h")) {
+			compiler.msg("%s", SML_Compiler.message);
+			return;
+		}
+
+		final Requirements reqs = SML_Compiler.getRequirements();
 
 		for (int i = 0, count = args.length; i < count; ++i)
 			if (args[i].startsWith("--"))
@@ -190,7 +216,7 @@ public class SML_Compiler {
 		reqs.add("verbose");
 
 		reqs.fulfil("input", "stdin");
-		reqs.fulfil("output", "out.sml");
+		reqs.fulfil("output", "out.txt");
 		reqs.fulfil("screen", false);
 		reqs.fulfil("st", false);
 		reqs.fulfil("verbose", false);

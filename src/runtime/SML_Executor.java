@@ -9,6 +9,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.util.Arrays;
 import java.util.Scanner;
 
 import memory.CodeReader;
@@ -35,6 +36,25 @@ import utility.StreamSet;
  * @author Alex Mandelias
  */
 public class SML_Executor {
+
+	/** Informs the user about the different flags available in the Compiler */
+	private static final String message = "Usage (parameters in [] are optional):\n"
+	        + "     java --class-path bin;lib\\requirement.jar runtime.SML_Executor [options]\n"
+	        + "\n"
+	        + "and <options> include:\n"
+	        + "  -h\n"
+	        + "      print this help message and exit\n"
+	        + "  --input <filename or 'stdin'>\n"
+	        + "      where to input the code for compilation or execution from\n"
+	        + "  --output <filename or 'stdout'>\n"
+	        + "      where to output the results of compilation or execution\n"
+	        + "  -screen\n"
+	        + "      output user-friendly results to stdout as well, independent from --output\n"
+	        + "  -verbose\n"
+	        + "      show all output, not only error messages\n"
+	        + "\n"
+	        + "Executing with no options is equivalent to:\n"
+	        + "  java --class-path bin;lib\\requirement.jar runtime.SML_Executor --input out.txt --output res.txt\n";
 
 	private final InputStream inputStream;
 	private final PrintStream outputStream, errorStream;
@@ -100,9 +120,14 @@ public class SML_Executor {
 	 */
 	public static void main(String[] args) {
 
-		final Requirements reqs = SML_Executor.getRequirements();
-
 		final SML_Executor executor = new SML_Executor();
+
+		if (Arrays.asList(args).contains("-h")) {
+			executor.message("%s", SML_Executor.message);
+			return;
+		}
+
+		final Requirements reqs = SML_Executor.getRequirements();
 
 		for (int i = 0, count = args.length; i < count; ++i)
 			if (args[i].startsWith("--"))
@@ -140,7 +165,7 @@ public class SML_Executor {
 		reqs.add("screen");
 		reqs.add("verbose");
 
-		reqs.fulfil("input", "out.sml");
+		reqs.fulfil("input", "out.txt");
 		reqs.fulfil("output", "res.txt");
 		reqs.fulfil("screen", false);
 		reqs.fulfil("verbose", false);
