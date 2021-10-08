@@ -6,14 +6,11 @@ the generated machine code and the result of execution can be found in the `exam
 directory.
 
 ## Compiler (SML_Compiler)
+
 The Compiler parses a high-level-language file (or stdin) to produce machine code that can
 be interpreted by the Executor. The language is deliberately BASIC-like to simplify the 
 compilation process, since each high-level-language statement is contained within a single 
-line and can be parsed independently from the rest of the code. Notable exceptions are the 
-`if` and `while` statements which inherently require a stack-like structure to function 
-since they can be nested. They are rather poorly implemented on top of the rest of the 
-Compiler because they were the last feature to be added to a compiler that didn't use 
-stacks or treat code as separate blocks from the beginning.
+line and can be parsed independently from the rest of the code.
 
 ## Runtime Environment (SML_Executor)
 
